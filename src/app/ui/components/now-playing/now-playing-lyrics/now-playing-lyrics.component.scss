@@ -1,0 +1,50 @@
+@import 'colors';
+@import 'picture-shadow';
+
+.app-now-playing-lyrics {
+    padding: 120px;
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    width: 100%;
+}
+
+.app-now-playing-lyrics__track {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.app-now-playing-lyrics__picture {
+    filter: $picture-shadow;
+}
+
+.app-now-playing-lyrics__spinner {
+    display: flex;
+    flex: 1;
+    margin-left: 50px;
+    justify-content: center;
+    align-items: center;
+}
+
+.app-now-playing-lyrics__text {
+    flex: 1;
+    min-width: 0;
+    margin-left: 50px;
+    overflow-y: auto;
+}
+
+.app-now-playing-lyrics__playback-info {
+    width: 100%;
+}
+
+.app-now-playing-lyrics__icon {
+    @extend .font-icon-accent-gradient;
+    font-size: 200px;
+    display: flex;
+    width: 300px;
+    height: 300px;
+    justify-content: center;
+    align-items: center;
+}

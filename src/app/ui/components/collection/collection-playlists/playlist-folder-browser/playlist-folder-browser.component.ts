@@ -1,0 +1,208 @@
+import { AfterViewInit, Component, Input, OnDestroy, ViewChild } from '@angular/core';
+import { CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
+import { MatMenuTrigger } from '@angular/material/menu';
+import { Logger } from '../../../../../common/logger';
+import { StringUtils } from '../../../../../common/utils/string-utils';
+import { PlaylistFolderModel } from '../../../../../services/playlist-folder/playlist-folder-model';
+import { Subscription } from 'rxjs';
+import { PlaylistFoldersPersister } from '../playlist-folders-persister';
+import { AppearanceServiceBase } from '../../../../../services/appearance/appearance.service.base';
+import { PlaylistFolderServiceBase } from '../../../../../services/playlist-folder/playlist-folder.service.base';
+import { PlaylistServiceBase } from '../../../../../services/playlist/playlist.service.base';
+import { PlaybackService } from '../../../../../services/playback/playback.service';
+import { DialogServiceBase } from '../../../../../services/dialog/dialog.service.base';
+import { TranslatorServiceBase } from '../../../../../services/translator/translator.service.base';
+import { SelectionWatcher } from '../../../selection-watcher';
+import { ContextMenuOpener } from '../../../context-menu-opener';
+import { DesktopBase } from '../../../../../common/io/desktop.base';
+import { ScrollPositionService } from '../../../../../services/scroll-position/scroll-position.service';
+import { SearchServiceBase } from '../../../../../services/search/search.service.base';
+import { BaseVirtualScrollBrowser } from '../../base-virtual-scroll-browser';
+
+@Component({
+    selector: 'app-playlist-folder-browser',
+    host: { style: 'display: block' },
+    templateUrl: './playlist-folder-browser.component.html',
+    styleUrls: ['./playlist-folder-browser.component.scss'],
+    providers: [SelectionWatcher],
+})
+export class PlaylistFolderBrowserComponent extends BaseVirtualScrollBrowser implements AfterViewInit, OnDestroy {
+    @ViewChild(CdkVirtualScrollViewport) public viewPort: CdkVirtualScrollViewport;
+    private _playlistFolders: PlaylistFolderModel[] = [];
+    private _playlistFoldersPersister: PlaylistFoldersPersister;
+    private subscription: Subscription = new Subscription();
+
+    public constructor(
+        public appearanceService: AppearanceServiceBase,
+        public playlistFolderService: PlaylistFolderServiceBase,
+        public playlistService: PlaylistServiceBase,
+        public playbackService: PlaybackService,
+        private dialogService: DialogServiceBase,
+        private translatorService: TranslatorServiceBase,
+        public contextMenuOpener: ContextMenuOpener,
+        private selectionWatcher: SelectionWatcher,
+        private desktop: DesktopBase,
+        private logger: Logger,
+        scrollPositionService: ScrollPositionService,
+        searchService: SearchServiceBase,
+    ) {
+        super(scrollPositionService, searchService);
+
+        this.selectionWatcher.onSelectAll = (): void => {
+            this.playlistFoldersPersister.setSelectedPlaylistFolders(this.selectionWatcher.selectedItems as PlaylistFolderModel[]);
+            this.playlistService.setActivePlaylistFolder(this.selectionWatcher.selectedItems as PlaylistFolderModel[]);
+        };
+    }
+
+    @Input()
+    public scrollPositionKey: string = 'playlist-folders';
+
+    public ngOnDestroy(): void {
+        this.disposeScrollPosition(this.scrollPositionKey);
+        this.subscription.unsubscribe();
+    }
+
+    public ngAfterViewInit(): void {
+        this.initializeScrollPosition(this.viewPort, this.scrollPositionKey, false);
+        this.restoreScrollPosition(this.viewPort, this.scrollPositionKey, this.playlistFolders.length > 0, false);
+    }
+
+    public get playlistFolders(): PlaylistFolderModel[] {
+        return this._playlistFolders;
+    }
+
+    @Input()
+    public set playlistFolders(v: PlaylistFolderModel[]) {
+        this._playlistFolders = v;
+        this.selectionWatcher.initialize(this.playlistFolders, false);
+
+        // When the component is first rendered, it happens that playlistFoldersPersister is undefined.
+        if (this.playlistFoldersPersister != undefined) {
+            this.applySelectedPlaylistFolders();
+        }
+
+        this.restoreScrollPosition(this.viewPort, this.scrollPositionKey, this.playlistFolders.length > 0, false);
+    }
+
+    public get playlistFoldersPersister(): PlaylistFoldersPersister {
+        return this._playlistFoldersPersister;
+    }
+
+    @Input()
+    public set playlistFoldersPersister(v: PlaylistFoldersPersister) {
+        this._playlistFoldersPersister = v;
+        this.applySelectedPlaylistFolders();
+    }
+
+    @ViewChild('playlistFolderContextMenuAnchor', { read: MatMenuTrigger, static: false })
+    public playlistFolderContextMenu: MatMenuTrigger;
+
+    public onPlaylistFolderContextMenu(event: MouseEvent, playlistFolder: PlaylistFolderModel): void {
+        if (playlistFolder.isModifiable) {
+            this.contextMenuOpener.open(this.playlistFolderContextMenu, event, playlistFolder);
+        }
+    }
+
+    public async onDeletePlaylistFolderAsync(playlistFolder: PlaylistFolderModel): Promise<void> {
+        const dialogTitle: string = await this.translatorService.getAsync('confirm-delete-playlist-folder');
+        const dialogText: string = await this.translatorService.getAsync('confirm-delete-playlist-folder-long', {
+            playlistFolderName: playlistFolder.name,
+        });
+
+        const userHasConfirmed: boolean = await this.dialogService.showConfirmationDialogAsync(dialogTitle, dialogText);
+
+        if (userHasConfirmed) {
+            try {
+                this.playlistFolderService.deletePlaylistFolder(playlistFolder);
+            } catch (e: unknown) {
+                this.logger.error(e, 'Could not delete playlist folder', 'CollectionPlaylistsComponent', 'onDeletePlaylistFolderAsync');
+
+                const errorText: string = await this.translatorService.getAsync('delete-playlist-folder-error');
+                this.dialogService.showErrorDialog(errorText);
+            }
+        }
+    }
+
+    public async onRenamePlaylistFolderAsync(playlistFolder: PlaylistFolderModel): Promise<void> {
+        const dialogTitle: string = await this.translatorService.getAsync('rename-playlist-folder');
+        const placeholderText: string = await this.translatorService.getAsync('rename-playlist-folder-placeholder');
+
+        const newPlaylistFolderName: string = await this.dialogService.showInputDialogAsync(
+            dialogTitle,
+            placeholderText,
+            playlistFolder.name,
+            [],
+        );
+
+        if (!StringUtils.isNullOrWhiteSpace(newPlaylistFolderName)) {
+            try {
+                this.playlistFolderService.renamePlaylistFolder(playlistFolder, newPlaylistFolderName);
+            } catch (e: unknown) {
+                this.logger.error(e, 'Could not rename playlist folder', 'CollectionPlaylistsComponent', 'onRenamePlaylistFolderAsync');
+
+                const errorText: string = await this.translatorService.getAsync('rename-playlist-folder-error');
+                this.dialogService.showErrorDialog(errorText);
+            }
+        }
+    }
+
+    public async createPlaylistFolderAsync(): Promise<void> {
+        const playlistFolderName: string = await this.dialogService.showInputDialogAsync(
+            this.translatorService.get('create-playlist-folder'),
+            this.translatorService.get('playlist-folder-name'),
+            '',
+            [],
+        );
+
+        try {
+            if (!StringUtils.isNullOrWhiteSpace(playlistFolderName)) {
+                this.playlistFolderService.createPlaylistFolder(playlistFolderName);
+            }
+        } catch (e: unknown) {
+            this.logger.error(e, 'Could not create playlist folder', 'CollectionPlaylistsComponent', 'createPlaylistFolderAsync');
+
+            const dialogText: string = await this.translatorService.getAsync('create-playlist-folder-error');
+            this.dialogService.showErrorDialog(dialogText);
+        }
+    }
+
+    public setSelectedPlaylistFolders(event: MouseEvent, playlistFolderToSelect: PlaylistFolderModel): void {
+        this.selectionWatcher.setSelectedItems(event, playlistFolderToSelect);
+        this.playlistFoldersPersister.setSelectedPlaylistFolders(this.selectionWatcher.selectedItems as PlaylistFolderModel[]);
+        this.playlistService.setActivePlaylistFolder(this.selectionWatcher.selectedItems as PlaylistFolderModel[]);
+    }
+
+    public get hasSelectedPlaylistFolders(): boolean {
+        if (this.playlistFoldersPersister == undefined) {
+            return false;
+        }
+
+        return this.playlistFoldersPersister.getSelectedPlaylistFolders(this.playlistFolders).length > 0;
+    }
+
+    public clearSelectedPlaylistFolders(): void {
+        this.selectionWatcher.initialize(this.playlistFolders, false);
+        this.playlistFoldersPersister.setSelectedPlaylistFolders([]);
+        this.playlistService.setActivePlaylistFolder([]);
+    }
+
+    public onShowInFolder(playlistFolder: PlaylistFolderModel): void {
+        this.desktop.showFileInDirectory(playlistFolder.path);
+    }
+
+    private applySelectedPlaylistFolders(): void {
+        const selectedPlaylistFolders: PlaylistFolderModel[] = this.playlistFoldersPersister.getSelectedPlaylistFolders(
+            this.playlistFolders,
+        );
+
+        this.playlistService.setActivePlaylistFolder(selectedPlaylistFolders);
+
+        if (selectedPlaylistFolders == undefined) {
+            return;
+        }
+
+        for (const selectedPlaylistFolder of selectedPlaylistFolders) {
+            selectedPlaylistFolder.isSelected = true;
+        }
+    }
+}

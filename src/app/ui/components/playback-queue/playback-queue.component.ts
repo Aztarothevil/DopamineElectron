@@ -1,0 +1,169 @@
+import { Component, Input, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import { MatMenuTrigger } from '@angular/material/menu';
+import { Subscription } from 'rxjs';
+import { PlaybackStarted } from '../../../services/playback/playback-started';
+import { TrackModel } from '../../../services/track/track-model';
+import { PlaybackService } from '../../../services/playback/playback.service';
+import { PlaybackIndicationServiceBase } from '../../../services/playback-indication/playback-indication.service.base';
+import { NavigationServiceBase } from '../../../services/navigation/navigation.service.base';
+import { SelectionWatcher } from '../selection-watcher';
+import { ContextMenuOpener } from '../context-menu-opener';
+import { SearchServiceBase } from '../../../services/search/search.service.base';
+import { StringUtils } from '../../../common/utils/string-utils';
+import { CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
+import { CdkDragDrop } from '@angular/cdk/drag-drop';
+import { SettingsBase } from '../../../common/settings/settings.base';
+import { AddToPlaylistMenu } from '../add-to-playlist-menu';
+
+@Component({
+    selector: 'app-playback-queue',
+    host: { style: 'display: block' },
+    templateUrl: './playback-queue.component.html',
+    styleUrls: ['./playback-queue.component.scss'],
+    encapsulation: ViewEncapsulation.None,
+    providers: [SelectionWatcher],
+})
+export class PlaybackQueueComponent implements OnInit, OnDestroy {
+    private subscription: Subscription = new Subscription();
+    private _shouldShowList: boolean = false;
+
+    public constructor(
+        public playbackService: PlaybackService,
+        public addToPlaylistMenu: AddToPlaylistMenu,
+        public contextMenuOpener: ContextMenuOpener,
+        public selectionWatcher: SelectionWatcher,
+        private playbackIndicationService: PlaybackIndicationServiceBase,
+        private navigationService: NavigationServiceBase,
+        private searchService: SearchServiceBase,
+        public settings: SettingsBase,
+    ) {}
+
+    @ViewChild('trackContextMenuAnchor', { read: MatMenuTrigger, static: false })
+    public trackContextMenu: MatMenuTrigger;
+
+    @ViewChild(CdkVirtualScrollViewport)
+    public viewPort: CdkVirtualScrollViewport;
+
+    @Input()
+    public showTitle: boolean = true;
+
+    public searchText: string = '';
+
+    public get shouldShowList(): boolean {
+        return this._shouldShowList;
+    }
+
+    public get filteredTracks(): TrackModel[] {
+        const queueTracks: TrackModel[] = this.playbackService.playbackQueue.tracks;
+
+        if (StringUtils.isNullOrWhiteSpace(this.searchText)) {
+            return queueTracks;
+        }
+
+        return queueTracks.filter((track: TrackModel) => {
+            const textToSearch: string = [
+                track.title,
+                track.albumTitle,
+                track.albumArtists,
+                track.artists,
+                track.fileName,
+                track.year.toString(),
+                track.genres,
+            ].join(' ');
+
+            return this.searchService.matchesSearchText(textToSearch, this.searchText);
+        });
+    }
+
+    public get hasSearchText(): boolean {
+        return !StringUtils.isNullOrWhiteSpace(this.searchText);
+    }
+
+    public get trackItemSize(): number {
+        return this.settings.useCompactTrackListView ? 32 : 46;
+    }
+
+    public ngOnDestroy(): void {
+        this.subscription.unsubscribe();
+    }
+
+    public ngOnInit(): void {
+        this.subscription.add(
+            this.playbackService.playbackStarted$.subscribe((playbackStarted: PlaybackStarted) => {
+                const queueTracks: TrackModel[] = this.playbackService.playbackQueue.tracks;
+                this.playbackIndicationService.clearPlayingTrack(queueTracks);
+                this.playbackIndicationService.setPlayingTrack(queueTracks, playbackStarted.currentTrack);
+            }),
+        );
+
+        this.subscription.add(
+            this.navigationService.refreshPlaybackQueueListRequested$.subscribe(() => {
+                // HACK: thanks to Angular for breaking cdk virtual scroll or the drawer (who knows, do they even know themselves?)
+                // After Angular 14, the cdk virtual scroll does not render all items when opening the drawer. A resize of the window
+                // with the drawer open, fixes drawing of all items in the list. This hack is an automatic workaround.
+                // I'm honestly very sick if this. Angular updates and deprecates their versions so quickly, forcing us to upgrade.
+                // But with each upgrade, something major breaks. I'm wasting countless days/weeks on such issues.
+                this._shouldShowList = false;
+                setTimeout(() => {
+                    this._shouldShowList = true;
+                }, 250);
+
+                this.selectionWatcher.initialize(this.playbackService.playbackQueue.tracks);
+            }),
+        );
+    }
+
+    public setSelectedTracks(event: MouseEvent, trackToSelect: TrackModel): void {
+        this.selectionWatcher.setSelectedItems(event, trackToSelect);
+    }
+
+    public onTrackContextMenu(event: MouseEvent, track: TrackModel): void {
+        this.contextMenuOpener.open(this.trackContextMenu, event, track);
+    }
+
+    public onRemoveFromQueue(): void {
+        this.playbackService.removeFromQueue(this.selectionWatcher.selectedItems as TrackModel[]);
+    }
+
+    public clearQueue(): void {
+        this.playbackService.clearQueue();
+    }
+
+    public clearSearchText(): void {
+        this.searchText = '';
+    }
+
+    public scrollToPlayingTrack(): void {
+        const tracks: TrackModel[] = this.filteredTracks;
+        const playingTrackIndex: number = tracks.findIndex((t) => t.isPlaying);
+
+        if (playingTrackIndex < 0 || this.viewPort == undefined) {
+            return;
+        }
+
+        setTimeout(() => this.viewPort.scrollToIndex(Math.max(playingTrackIndex - 1, 0), 'smooth'));
+    }
+
+    public get canReorderQueue(): boolean {
+        return !this.hasSearchText;
+    }
+
+    public dropTrack(event: CdkDragDrop<TrackModel[]>): void {
+        if (!this.canReorderQueue) {
+            return;
+        }
+
+        // With CDK virtual scroll, drag event indices are relative to the rendered rows, not the full
+        // list. Derive the real source index from the dragged track and apply the same displacement.
+        const previousIndex: number = this.filteredTracks.indexOf(event.item.data as TrackModel);
+
+        if (previousIndex < 0) {
+            return;
+        }
+
+        const currentIndex: number = previousIndex + (event.currentIndex - event.previousIndex);
+
+        this.playbackService.reorderQueue(previousIndex, currentIndex);
+        this.selectionWatcher.initialize(this.playbackService.playbackQueue.tracks);
+    }
+}

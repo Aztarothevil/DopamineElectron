@@ -1,0 +1,214 @@
+import { Injectable } from '@angular/core';
+import { Logger } from '../../common/logger';
+import { Shuffler } from '../../common/shuffler';
+import { TrackModel } from '../track/track-model';
+
+@Injectable({ providedIn: 'root' })
+export class Queue {
+    private _tracks: TrackModel[] = [];
+    private playbackOrder: number[] = [];
+
+    public constructor(
+        private shuffler: Shuffler,
+        private logger: Logger,
+    ) {}
+
+    public get tracks(): TrackModel[] {
+        return this._tracks;
+    }
+
+    public get tracksInPlaybackOrder(): TrackModel[] {
+        const tracksInPlaybackOrder: TrackModel[] = [];
+
+        for (const trackIndex of this.playbackOrder) {
+            tracksInPlaybackOrder.push(this._tracks[trackIndex]);
+        }
+
+        return tracksInPlaybackOrder;
+    }
+
+    public get numberOfTracks(): number {
+        return this._tracks.length;
+    }
+
+    public setTracks(tracksToSet: TrackModel[], shuffle: boolean): TrackModel[] {
+        this._tracks = tracksToSet.map((x) => x.clone());
+
+        if (shuffle) {
+            this.shuffle();
+        } else {
+            this.unShuffle();
+        }
+
+        this.logger.info(`Set '${tracksToSet?.length}' tracks. Shuffle=${shuffle}`, 'Queue', 'setTracks');
+
+        return this._tracks;
+    }
+
+    public addTracks(tracksToAdd: TrackModel[]): void {
+        for (const trackToAdd of tracksToAdd) {
+            this._tracks.push(trackToAdd.clone());
+            this.playbackOrder.push(this._tracks.length - 1);
+        }
+
+        this.logger.info(`Added '${tracksToAdd?.length}' tracks`, 'Queue', 'addTracks');
+    }
+
+    public restoreTracks(tracks: TrackModel[], playbackOrder: number[]): void {
+        this._tracks = tracks;
+        this.playbackOrder = playbackOrder;
+
+        this.logger.info(`Restored '${tracks?.length}' tracks`, 'Queue', 'restoreTracks');
+    }
+
+    public removeTracks(tracksToRemove: TrackModel[] | undefined): void {
+        if (tracksToRemove == undefined) {
+            return;
+        }
+
+        if (tracksToRemove.length === 0) {
+            return;
+        }
+
+        for (const trackToRemove of [...tracksToRemove]) {
+            const trackIndex: number = this._tracks.indexOf(trackToRemove);
+
+            if (trackIndex !== -1) {
+                this.removeFromTracks(trackIndex);
+                this.removeFromPlaybackOrder(trackIndex);
+            }
+        }
+    }
+
+    public moveTrackInPlaybackOrder(fromPlaybackOrderIndex: number, toPlaybackOrderIndex: number): void {
+        if (fromPlaybackOrderIndex === toPlaybackOrderIndex) {
+            return;
+        }
+
+        if (fromPlaybackOrderIndex < 0 || fromPlaybackOrderIndex >= this.playbackOrder.length) {
+            return;
+        }
+
+        if (toPlaybackOrderIndex < 0 || toPlaybackOrderIndex >= this.playbackOrder.length) {
+            return;
+        }
+
+        const [movedTrackIndex]: number[] = this.playbackOrder.splice(fromPlaybackOrderIndex, 1);
+        this.playbackOrder.splice(toPlaybackOrderIndex, 0, movedTrackIndex);
+    }
+
+    public shuffle(): void {
+        this.populatePlayBackOrder();
+        this.shufflePlaybackOrder();
+    }
+
+    public unShuffle(): void {
+        this.populatePlayBackOrder();
+    }
+
+    public getFirstTrack(): TrackModel | undefined {
+        if (this.playbackOrder == undefined) {
+            return undefined;
+        }
+
+        if (this.playbackOrder.length === 0) {
+            return undefined;
+        }
+
+        return this._tracks[this.playbackOrder[0]];
+    }
+
+    public getPreviousTrack(currentTrack: TrackModel | undefined, allowWrapAround: boolean): TrackModel | undefined {
+        if (this._tracks.length === 0) {
+            return undefined;
+        }
+
+        const minimumIndex: number = 0;
+        const maximumIndex: number = this.playbackOrder.length - 1;
+
+        if (currentTrack == undefined) {
+            return this._tracks[this.playbackOrder[minimumIndex]];
+        }
+
+        if (!this._tracks.includes(currentTrack)) {
+            return this._tracks[this.playbackOrder[minimumIndex]];
+        }
+
+        const currentIndex: number = this.getPlaybackOrderIndex(currentTrack);
+
+        if (currentIndex > minimumIndex) {
+            return this._tracks[this.playbackOrder[currentIndex - 1]];
+        }
+
+        if (allowWrapAround) {
+            return this._tracks[this.playbackOrder[maximumIndex]];
+        }
+
+        return undefined;
+    }
+
+    public getNextTrack(currentTrack: TrackModel | undefined, allowWrapAround: boolean): TrackModel | undefined {
+        if (this._tracks.length === 0) {
+            return undefined;
+        }
+
+        const minimumIndex: number = 0;
+        const maximumIndex: number = this.playbackOrder.length - 1;
+
+        if (currentTrack == undefined) {
+            return this._tracks[this.playbackOrder[minimumIndex]];
+        }
+
+        if (!this._tracks.includes(currentTrack)) {
+            return this._tracks[this.playbackOrder[minimumIndex]];
+        }
+
+        const currentIndex: number = this.getPlaybackOrderIndex(currentTrack);
+
+        if (currentIndex < maximumIndex) {
+            return this._tracks[this.playbackOrder[currentIndex + 1]];
+        }
+
+        if (allowWrapAround) {
+            return this._tracks[this.playbackOrder[minimumIndex]];
+        }
+
+        return undefined;
+    }
+
+    private populatePlayBackOrder(): void {
+        this.playbackOrder = [];
+
+        for (let i: number = 0; i < this._tracks.length; i++) {
+            this.playbackOrder.push(i);
+        }
+    }
+
+    private shufflePlaybackOrder(): void {
+        this.playbackOrder = this.shuffler.shuffle<number>(this.playbackOrder);
+    }
+
+    public getPlaybackOrderIndex(track: TrackModel): number {
+        const queuedTracksIndex: number = this._tracks.indexOf(track);
+
+        return this.playbackOrder.indexOf(queuedTracksIndex);
+    }
+
+    private removeFromTracks(trackIndex: number): void {
+        this._tracks.splice(trackIndex, 1);
+    }
+
+    private removeFromPlaybackOrder(trackIndex: number): void {
+        const playbackOrderIndex: number = this.playbackOrder.indexOf(trackIndex);
+
+        if (playbackOrderIndex !== -1) {
+            this.playbackOrder.splice(playbackOrderIndex, 1);
+
+            for (let index = 0; index < this.playbackOrder.length; index++) {
+                if (this.playbackOrder[index] > trackIndex) {
+                    this.playbackOrder[index] -= 1;
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,910 @@
+import { Observable, Subject } from 'rxjs';
+import { IMock, It, Mock, Times } from 'typemoq';
+import { AddToPlaylistMenu } from '../../../add-to-playlist-menu';
+import { ArtistsPersister } from '../artists-persister';
+import { ArtistBrowserComponent } from './artist-browser.component';
+import { ArtistOrder, artistOrderKey } from './artist-order';
+import { ArtistModel } from '../../../../../services/artist/artist-model';
+import { Logger } from '../../../../../common/logger';
+import { ContextMenuOpener } from '../../../context-menu-opener';
+import { SelectionWatcher } from '../../../selection-watcher';
+import { SemanticZoomHeaderAdder } from '../../../../../common/semantic-zoom-header-adder';
+import { ArtistType, artistTypeKey } from '../../../../../services/artist/artist-type';
+import { Constants } from '../../../../../common/application/constants';
+import { SemanticZoomServiceBase } from '../../../../../services/semantic-zoom/semantic-zoom.service.base';
+import { ApplicationServiceBase } from '../../../../../services/application/application.service.base';
+import { SchedulerBase } from '../../../../../common/scheduling/scheduler.base';
+import { TranslatorServiceBase } from '../../../../../services/translator/translator.service.base';
+import { GuidFactory } from '../../../../../common/guid.factory';
+import { ArtistSorter } from '../../../../../common/sorting/artist-sorter';
+import { PlaybackService } from '../../../../../services/playback/playback.service';
+import { TrackServiceBase } from '../../../../../services/track/track.service.base';
+import { TrackModels } from '../../../../../services/track/track-models';
+import { ApplicationPaths } from '../../../../../common/application/application-paths';
+import { SettingsMock } from '../../../../../testing/settings-mock';
+import { DialogServiceBase } from '../../../../../services/dialog/dialog.service.base';
+import { ScrollPositionService } from '../../../../../services/scroll-position/scroll-position.service';
+import { SearchServiceBase } from '../../../../../services/search/search.service.base';
+
+export class CdkVirtualScrollViewportMock {
+    private _scrollToIndexIndex: number = -1;
+    private _scrollToIndexBehavior: ScrollBehavior | undefined;
+
+    public get scrollToIndexIndex(): number {
+        return this._scrollToIndexIndex;
+    }
+
+    public get scrollToIndexbehavior(): ScrollBehavior | undefined {
+        return this._scrollToIndexBehavior;
+    }
+
+    public scrollToIndex(index: number, behavior?: ScrollBehavior): void {
+        this._scrollToIndexIndex = index;
+        this._scrollToIndexBehavior = behavior;
+    }
+
+    public elementScrolled(): Observable<Event> {
+        return new Subject<Event>().asObservable();
+    }
+}
+
+describe('ArtistBrowserComponent', () => {
+    let trackServiceMock: IMock<TrackServiceBase>;
+    let playbackServiceMock: IMock<PlaybackService>;
+    let semanticZoomServiceMock: IMock<SemanticZoomServiceBase>;
+    let applicationServiceMock: IMock<ApplicationServiceBase>;
+    let addToPlaylistMenuMock: IMock<AddToPlaylistMenu>;
+    let selectionWatcherMock: IMock<SelectionWatcher>;
+    let contextMenuOpenerMock: IMock<ContextMenuOpener>;
+    let artistSorterMock: IMock<ArtistSorter>;
+    let guidFactoryMock: IMock<GuidFactory>;
+    let schedulerMock: IMock<SchedulerBase>;
+    let loggerMock: IMock<Logger>;
+    let translatorServiceMock: IMock<TranslatorServiceBase>;
+    let semanticZoomHeaderAdderMock: IMock<SemanticZoomHeaderAdder>;
+    let artistsPersisterMock: IMock<ArtistsPersister>;
+    let applicationPathsMock: IMock<ApplicationPaths>;
+    let dialogServiceMock: IMock<DialogServiceBase>;
+    let scrollPositionServiceMock: IMock<ScrollPositionService>;
+    let searchServiceMock: IMock<SearchServiceBase>;
+    let semanticZoomService_zoomOutRequested: Subject<void>;
+    let semanticZoomService_zoomInRequested: Subject<string>;
+    let applicationService_mouseButtonReleased: Subject<void>;
+    let settingsMock: SettingsMock;
+
+    let artist1: ArtistModel;
+    let artist2: ArtistModel;
+
+    function createComponent(): ArtistBrowserComponent {
+        const semanticZoomHeaderAdder: SemanticZoomHeaderAdder = new SemanticZoomHeaderAdder(guidFactoryMock.object);
+
+        return new ArtistBrowserComponent(
+            trackServiceMock.object,
+            playbackServiceMock.object,
+            semanticZoomServiceMock.object,
+            applicationServiceMock.object,
+            addToPlaylistMenuMock.object,
+            selectionWatcherMock.object,
+            contextMenuOpenerMock.object,
+            artistSorterMock.object,
+            semanticZoomHeaderAdder,
+            schedulerMock.object,
+            dialogServiceMock.object,
+            settingsMock,
+            loggerMock.object,
+            scrollPositionServiceMock.object,
+            searchServiceMock.object,
+        );
+    }
+
+    function createComponentWithSemanticZoomAdderMock(): ArtistBrowserComponent {
+        return new ArtistBrowserComponent(
+            trackServiceMock.object,
+            playbackServiceMock.object,
+            semanticZoomServiceMock.object,
+            applicationServiceMock.object,
+            addToPlaylistMenuMock.object,
+            selectionWatcherMock.object,
+            contextMenuOpenerMock.object,
+            artistSorterMock.object,
+            semanticZoomHeaderAdderMock.object,
+            schedulerMock.object,
+            dialogServiceMock.object,
+            settingsMock,
+            loggerMock.object,
+            scrollPositionServiceMock.object,
+            searchServiceMock.object,
+        );
+    }
+
+    const flushPromises = () => new Promise(process.nextTick);
+
+    beforeEach(() => {
+        trackServiceMock = Mock.ofType<TrackServiceBase>();
+        translatorServiceMock = Mock.ofType<TranslatorServiceBase>();
+        semanticZoomServiceMock = Mock.ofType<SemanticZoomServiceBase>();
+        applicationServiceMock = Mock.ofType<ApplicationServiceBase>();
+        addToPlaylistMenuMock = Mock.ofType<AddToPlaylistMenu>();
+        selectionWatcherMock = Mock.ofType<SelectionWatcher>();
+        contextMenuOpenerMock = Mock.ofType<ContextMenuOpener>();
+        artistSorterMock = Mock.ofType<ArtistSorter>();
+        semanticZoomHeaderAdderMock = Mock.ofType<SemanticZoomHeaderAdder>();
+        guidFactoryMock = Mock.ofType<GuidFactory>();
+        schedulerMock = Mock.ofType<SchedulerBase>();
+        loggerMock = Mock.ofType<Logger>();
+        playbackServiceMock = Mock.ofType<PlaybackService>();
+        applicationPathsMock = Mock.ofType<ApplicationPaths>();
+        dialogServiceMock = Mock.ofType<DialogServiceBase>();
+        settingsMock = new SettingsMock();
+        scrollPositionServiceMock = Mock.ofType<ScrollPositionService>();
+        searchServiceMock = Mock.ofType<SearchServiceBase>();
+        searchServiceMock.setup((x) => x.delayedSearchTextChanged$).returns(() => new Subject<string>().asObservable());
+
+        guidFactoryMock.setup((x) => x.create()).returns(() => '91c70666-8ad0-4037-8590-47f0c453c97d');
+
+        semanticZoomService_zoomOutRequested = new Subject();
+        semanticZoomService_zoomInRequested = new Subject();
+        applicationService_mouseButtonReleased = new Subject();
+
+        const semanticZoomService_zoomOutRequested$: Observable<void> = semanticZoomService_zoomOutRequested.asObservable();
+        const semanticZoomService_zoomInRequested$: Observable<string> = semanticZoomService_zoomInRequested.asObservable();
+        const applicationService_mouseButtonReleased$: Observable<void> = applicationService_mouseButtonReleased.asObservable();
+
+        semanticZoomServiceMock.setup((x) => x.zoomOutRequested$).returns(() => semanticZoomService_zoomOutRequested$);
+        semanticZoomServiceMock.setup((x) => x.zoomInRequested$).returns(() => semanticZoomService_zoomInRequested$);
+        applicationServiceMock.setup((x) => x.mouseButtonReleased$).returns(() => applicationService_mouseButtonReleased$);
+
+        artistsPersisterMock = Mock.ofType<ArtistsPersister>();
+        artist1 = new ArtistModel('One artist', undefined, translatorServiceMock.object, applicationPathsMock.object);
+        artist2 = new ArtistModel('Two artist', undefined, translatorServiceMock.object, applicationPathsMock.object);
+
+        artistSorterMock.setup((x) => x.sortAscending([])).returns(() => []);
+        artistSorterMock.setup((x) => x.sortDescending([])).returns(() => []);
+        artistSorterMock.setup((x) => x.sortAscending(It.isAny())).returns(() => [artist1, artist2]);
+        artistSorterMock.setup((x) => x.sortDescending(It.isAny())).returns(() => [artist2, artist1]);
+        translatorServiceMock.setup((x) => x.get('unknown-artist')).returns(() => 'Unknown artist');
+        artistsPersisterMock.setup((x) => x.getSelectedArtists([artist1, artist2])).returns(() => [artist2]);
+        artistsPersisterMock.setup((x) => x.getSelectedArtistOrder()).returns(() => ArtistOrder.byArtistDescending);
+
+        semanticZoomHeaderAdderMock.setup((x) => x.addZoomHeaders(It.isAny())).returns(() => [artist2, artist1]);
+    });
+
+    describe('constructor', () => {
+        it('should create', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component).toBeDefined();
+        });
+
+        it('should define orderedArtists as empty', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.orderedArtists).toBeDefined();
+            expect(component.orderedArtists.length).toEqual(0);
+        });
+
+        it('should declare selectedArtistOrder', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.selectedArtistOrder).toBeUndefined();
+        });
+
+        it('should declare selectedArtistType', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.selectedArtistType).toBeUndefined();
+        });
+
+        it('should declare artistsPersister', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.artistsPersister).toBeUndefined();
+        });
+
+        it('should define artists', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.artists).toBeDefined();
+        });
+
+        it('should define playbackService', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.playbackService).toBeDefined();
+        });
+
+        it('should define selectionWatcher', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.selectionWatcher).toBeDefined();
+        });
+
+        it('should define contextMenuOpener', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.contextMenuOpener).toBeDefined();
+        });
+
+        it('should define addToPlaylistMenu', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.addToPlaylistMenu).toBeDefined();
+        });
+
+        it('should declare shouldZoomOut as false', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.shouldZoomOut).toBeFalsy();
+        });
+
+        it('should define artistTypes', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.artistTypes).toEqual([ArtistType.trackArtists, ArtistType.albumArtists, ArtistType.allArtists]);
+        });
+
+        it('should define artistTypeKey', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.artistTypeKey).toEqual(artistTypeKey);
+        });
+
+        it('should define artistOrders', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.artistOrders).toEqual([ArtistOrder.byArtistAscending, ArtistOrder.byArtistDescending]);
+        });
+
+        it('should define artistOrderKey', () => {
+            // Arrange
+
+            // Act
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Assert
+            expect(component.artistOrderKey).toEqual(artistOrderKey);
+        });
+    });
+
+    describe('ngOnInit', () => {
+        it('should set shouldZoomOut to true when zoom out is requested', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.shouldZoomOut = false;
+
+            // Act
+            component.ngOnInit();
+            semanticZoomService_zoomOutRequested.next();
+
+            // Assert
+            expect(component.shouldZoomOut).toBeTruthy();
+        });
+
+        it('should scroll to zoom header when zoom in is requested', async () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponentWithSemanticZoomAdderMock();
+            artist1.isZoomHeader = true;
+            artist2.isZoomHeader = true;
+            component.artistsPersister = artistsPersisterMock.object;
+            component.artists = [artist1, artist2];
+            component.shouldZoomOut = true;
+
+            const viewportMockAny: any = new CdkVirtualScrollViewportMock() as any;
+            component.viewPort = viewportMockAny;
+
+            // Act
+            component.ngOnInit();
+            semanticZoomService_zoomInRequested.next('t');
+            await flushPromises();
+
+            // Assert
+            expect(component.shouldZoomOut).toBeFalsy();
+            schedulerMock.verify((x) => x.sleepAsync(Constants.semanticZoomInDelayMilliseconds), Times.once());
+
+            expect(viewportMockAny.scrollToIndexIndex).toEqual(0);
+            expect(viewportMockAny.scrollToIndexbehavior).toEqual('smooth');
+        });
+
+        it('should select and persist all artists for the zoomed letter when zoom in is requested', async () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponentWithSemanticZoomAdderMock();
+            const headerA: ArtistModel = new ArtistModel('A', undefined, translatorServiceMock.object, applicationPathsMock.object);
+            const artistA1: ArtistModel = new ArtistModel('Alpha', undefined, translatorServiceMock.object, applicationPathsMock.object);
+            const artistA2: ArtistModel = new ArtistModel('Adele', undefined, translatorServiceMock.object, applicationPathsMock.object);
+            const headerB: ArtistModel = new ArtistModel('B', undefined, translatorServiceMock.object, applicationPathsMock.object);
+            const artistB1: ArtistModel = new ArtistModel('Beatles', undefined, translatorServiceMock.object, applicationPathsMock.object);
+
+            headerA.isZoomHeader = true;
+            headerB.isZoomHeader = true;
+
+            semanticZoomHeaderAdderMock.reset();
+            semanticZoomHeaderAdderMock
+                .setup((x) => x.addZoomHeaders(It.isAny()))
+                .returns(() => [headerA, artistA1, artistA2, headerB, artistB1]);
+
+            artistsPersisterMock.reset();
+            artistsPersisterMock.setup((x) => x.getSelectedArtistType()).returns(() => ArtistType.trackArtists);
+            artistsPersisterMock.setup((x) => x.getSelectedArtistOrder()).returns(() => ArtistOrder.byArtistAscending);
+            artistsPersisterMock.setup((x) => x.getSelectedArtists(It.isAny())).returns(() => []);
+
+            const viewportMockAny: any = new CdkVirtualScrollViewportMock() as any;
+            component.viewPort = viewportMockAny;
+            component.artistsPersister = artistsPersisterMock.object;
+            component.artists = [artistA1, artistA2, artistB1];
+            artistB1.isSelected = true;
+
+            // Act
+            component.ngOnInit();
+            semanticZoomService_zoomInRequested.next('A');
+            await flushPromises();
+
+            // Assert
+            expect(viewportMockAny.scrollToIndexIndex).toEqual(0);
+            expect(artistA1.isSelected).toBeTruthy();
+            expect(artistA2.isSelected).toBeTruthy();
+            expect(artistB1.isSelected).toBeFalsy();
+            artistsPersisterMock.verify(
+                (x) =>
+                    x.setSelectedArtists(
+                        It.is(
+                            (artists: ArtistModel[]) =>
+                                artists.length === 2 &&
+                                artists[0].displayName === artistA1.displayName &&
+                                artists[1].displayName === artistA2.displayName,
+                        ),
+                    ),
+                Times.once(),
+            );
+        });
+
+        it('should set shouldZoomOut to false when mouse button is released', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.shouldZoomOut = true;
+
+            // Act
+            component.ngOnInit();
+            applicationService_mouseButtonReleased.next();
+
+            // Assert
+            expect(component.shouldZoomOut).toBeFalsy();
+        });
+    });
+
+    describe('artists', () => {
+        it('should set and get the artists', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Act
+            component.artists = [artist1, artist2];
+
+            // Assert
+            expect(component.artists).toEqual([artist1, artist2]);
+        });
+
+        it('should initialize selectionWatcher using artists', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Act
+            component.artists = [artist1, artist2];
+
+            // Assert
+            selectionWatcherMock.verify(
+                (x) =>
+                    x.initialize(
+                        It.is(
+                            (artists: ArtistModel[]) =>
+                                artists.length === 2 &&
+                                artists[0].displayName === artist1.displayName &&
+                                artists[1].displayName === artist2.displayName,
+                        ),
+                        false,
+                    ),
+                Times.once(),
+            );
+        });
+
+        it('should not order the artists if artistsPersister is undefined', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.selectedArtistOrder = ArtistOrder.byArtistAscending;
+
+            // Act
+            component.artists = [artist1, artist2];
+
+            // Assert
+            expect(component.orderedArtists.length).toEqual(0);
+        });
+
+        it('should order the artists by artist ascending if artistsPersister is not undefined and if the selected artist order is byArtistAscending', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.artistsPersister = artistsPersisterMock.object;
+            component.selectedArtistOrder = ArtistOrder.byArtistAscending;
+
+            // Act
+            component.artists = [artist1, artist2];
+
+            // Assert
+            expect(component.orderedArtists[1]).toEqual(artist1);
+            expect(component.orderedArtists[3]).toEqual(artist2);
+        });
+
+        it('should order the artists by artist descending if artistsPersister is not undefined and if the selected artist order is byArtistDescending', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.artistsPersister = artistsPersisterMock.object;
+            component.selectedArtistOrder = ArtistOrder.byArtistDescending;
+
+            // Act
+            component.artists = [artist1, artist2];
+
+            // Assert
+            expect(component.orderedArtists[1]).toEqual(artist2);
+            expect(component.orderedArtists[3]).toEqual(artist1);
+        });
+
+        it('should not show the headers for the ordered artists if artistsPersister is undefined', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponentWithSemanticZoomAdderMock();
+            component.selectedArtistOrder = ArtistOrder.byArtistDescending;
+
+            // Act
+            component.artists = [artist1, artist2];
+
+            // Assert
+            semanticZoomHeaderAdderMock.verify((x) => x.addZoomHeaders(component.orderedArtists), Times.never());
+        });
+
+        it('should show the headers for the ordered artists if artistsPersister is not undefined', () => {
+            // Arrange
+            semanticZoomHeaderAdderMock.setup((x) => x.addZoomHeaders([])).returns(() => []);
+            semanticZoomHeaderAdderMock.setup((x) => x.addZoomHeaders([artist2, artist1])).returns(() => [artist2, artist1]);
+
+            const component: ArtistBrowserComponent = createComponentWithSemanticZoomAdderMock();
+            component.artistsPersister = artistsPersisterMock.object;
+            component.selectedArtistOrder = ArtistOrder.byArtistDescending;
+
+            // Act
+            component.artists = [artist1, artist2];
+
+            // Assert
+            semanticZoomHeaderAdderMock.verify(
+                (x) =>
+                    x.addZoomHeaders(
+                        It.is(
+                            (artists: ArtistModel[]) =>
+                                artists.length === 2 &&
+                                artists[0].displayName === artist2.displayName &&
+                                artists[1].displayName === artist1.displayName,
+                        ),
+                    ),
+                Times.once(),
+            );
+        });
+
+        it('should not apply the selected artists if artistsPersister is undefined', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.selectedArtistOrder = ArtistOrder.byArtistDescending;
+
+            // Act
+            component.artists = [artist1, artist2];
+
+            // Assert
+            expect(component.artists[0].isSelected).toBeFalsy();
+            expect(component.artists[1].isSelected).toBeFalsy();
+        });
+
+        it('should apply the selected artists if artistsPersister is not undefined', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.artistsPersister = artistsPersisterMock.object;
+            component.selectedArtistOrder = ArtistOrder.byArtistDescending;
+
+            // Act
+            component.artists = [artist1, artist2];
+
+            // Assert
+            expect(component.artists[0].isSelected).toBeFalsy();
+            expect(component.artists[1].isSelected).toBeTruthy();
+        });
+    });
+
+    describe('artistsPersister', () => {
+        it('should set and return artistsPersister', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.artists = [artist1, artist2];
+            component.artistsPersister = artistsPersisterMock.object;
+
+            // Act
+            const persister: ArtistsPersister = component.artistsPersister;
+
+            // Assert
+            expect(persister).toBe(artistsPersisterMock.object);
+        });
+
+        it('should set the selected artist order', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.artists = [artist1, artist2];
+            component.selectedArtistOrder = ArtistOrder.byArtistAscending;
+            artistsPersisterMock.reset();
+            artistsPersisterMock.setup((x) => x.getSelectedArtistOrder()).returns(() => ArtistOrder.byArtistDescending);
+
+            // Act
+            component.artistsPersister = artistsPersisterMock.object;
+
+            // Assert
+            expect(component.selectedArtistOrder).toEqual(ArtistOrder.byArtistDescending);
+        });
+
+        it('should order the artists by artist ascending if the selected artist order is byArtistAscending', () => {
+            // Arrange
+            artistsPersisterMock.reset();
+            artistsPersisterMock.setup((x) => x.getSelectedArtistOrder()).returns(() => ArtistOrder.byArtistAscending);
+
+            const component: ArtistBrowserComponent = createComponent();
+
+            component.artists = [artist1, artist2];
+
+            // Act
+            component.artistsPersister = artistsPersisterMock.object;
+
+            // Assert
+            expect(component.orderedArtists[1]).toEqual(artist1);
+            expect(component.orderedArtists[3]).toEqual(artist2);
+        });
+
+        it('should order the artists by artist descending if the selected artist order is byArtistDescending', () => {
+            // Arrange
+            artistsPersisterMock.reset();
+            artistsPersisterMock.setup((x) => x.getSelectedArtistOrder()).returns(() => ArtistOrder.byArtistDescending);
+
+            const component: ArtistBrowserComponent = createComponent();
+
+            component.artists = [artist1, artist2];
+
+            // Act
+            component.artistsPersister = artistsPersisterMock.object;
+
+            // Assert
+            expect(component.orderedArtists[1]).toEqual(artist2);
+            expect(component.orderedArtists[3]).toEqual(artist1);
+        });
+
+        it('should show the headers for the ordered artists', () => {
+            // Arrange
+            semanticZoomHeaderAdderMock.setup((x) => x.addZoomHeaders([artist2, artist1])).returns(() => [artist2, artist1]);
+
+            artistsPersisterMock.reset();
+            artistsPersisterMock.setup((x) => x.getSelectedArtistOrder()).returns(() => ArtistOrder.byArtistDescending);
+
+            const component: ArtistBrowserComponent = createComponentWithSemanticZoomAdderMock();
+
+            component.artists = [artist1, artist2];
+
+            // Act
+            component.artistsPersister = artistsPersisterMock.object;
+
+            // Assert
+            semanticZoomHeaderAdderMock.verify((x) => x.addZoomHeaders(component.orderedArtists), Times.once());
+        });
+
+        it('should apply the selected artists', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+
+            component.artists = [artist1, artist2];
+
+            // Act
+            component.artistsPersister = artistsPersisterMock.object;
+
+            // Assert
+            expect(component.artists[0].isSelected).toBeFalsy();
+            expect(component.artists[1].isSelected).toBeTruthy();
+        });
+    });
+
+    describe('setSelectedArtists', () => {
+        it('should set the selected items on selectionWatcher if the artist is a not zoom header', () => {
+            // Arrange
+            const event: any = {};
+            const component: ArtistBrowserComponent = createComponent();
+            component.artists = [artist1, artist2];
+            artist1.isZoomHeader = false;
+            component.artistsPersister = artistsPersisterMock.object;
+
+            // Act
+            component.setSelectedArtists(event, artist1);
+
+            // Assert
+            selectionWatcherMock.verify((x) => x.setSelectedItems(event, artist1), Times.exactly(1));
+        });
+
+        it('should not set the selected items on selectionWatcher if the artist is a zoom header', () => {
+            // Arrange
+            const event: any = {};
+            const component: ArtistBrowserComponent = createComponent();
+            component.artists = [artist1, artist2];
+            artist1.isZoomHeader = true;
+            component.artistsPersister = artistsPersisterMock.object;
+
+            // Act
+            component.setSelectedArtists(event, artist1);
+
+            // Assert
+            selectionWatcherMock.verify((x) => x.setSelectedItems(event, artist1), Times.never());
+        });
+
+        it('should persist the selected artist if the artist is a not zoom header', () => {
+            // Arrange
+
+            selectionWatcherMock.reset();
+            selectionWatcherMock.setup((x) => x.selectedItems).returns(() => [artist1, artist2]);
+            const component: ArtistBrowserComponent = createComponent();
+
+            const event: any = {};
+            component.artists = [artist1, artist2];
+            artist1.isZoomHeader = false;
+            component.artistsPersister = artistsPersisterMock.object;
+
+            // Act
+            component.setSelectedArtists(event, artist1);
+
+            // Assert
+            artistsPersisterMock.verify((x) => x.setSelectedArtists([artist1, artist2]), Times.exactly(1));
+        });
+
+        it('should not persist the selected artist if the artist is a zoom header', () => {
+            // Arrange
+
+            selectionWatcherMock.reset();
+            selectionWatcherMock.setup((x) => x.selectedItems).returns(() => [artist1, artist2]);
+            const component: ArtistBrowserComponent = createComponent();
+
+            const event: any = {};
+            component.artists = [artist1, artist2];
+            artist1.isZoomHeader = true;
+            component.artistsPersister = artistsPersisterMock.object;
+
+            // Act
+            component.setSelectedArtists(event, artist1);
+
+            // Assert
+            artistsPersisterMock.verify((x) => x.setSelectedArtists([artist1, artist2]), Times.never());
+        });
+    });
+
+    describe('applyArtistOrder', () => {
+        it('should apply artist order by artist ascending', () => {
+            // Arrange
+            artistsPersisterMock.reset();
+            artistsPersisterMock.setup((x) => x.getSelectedArtistOrder()).returns(() => ArtistOrder.byArtistDescending);
+
+            const component: ArtistBrowserComponent = createComponent();
+            component.artists = [artist1, artist2];
+            component.artistsPersister = artistsPersisterMock.object;
+
+            const artistOrder = ArtistOrder.byArtistAscending;
+
+            // Act
+            component.applyArtistOrder(artistOrder);
+
+            // Assert
+            expect(component.selectedArtistOrder).toEqual(artistOrder);
+            artistsPersisterMock.verify((x) => x.setSelectedArtistOrder(artistOrder), Times.once());
+            expect(component.orderedArtists[1]).toEqual(artist1);
+            expect(component.orderedArtists[3]).toEqual(artist2);
+        });
+
+        it('should apply artist order by artist descending', () => {
+            // Arrange
+            artistsPersisterMock.reset();
+            artistsPersisterMock.setup((x) => x.getSelectedArtistOrder()).returns(() => ArtistOrder.byArtistAscending);
+
+            const component: ArtistBrowserComponent = createComponent();
+            component.artists = [artist1, artist2];
+            component.artistsPersister = artistsPersisterMock.object;
+
+            const artistOrder = ArtistOrder.byArtistDescending;
+
+            // Act
+            component.applyArtistOrder(artistOrder);
+
+            // Assert
+            expect(component.selectedArtistOrder).toEqual(artistOrder);
+            artistsPersisterMock.verify((x) => x.setSelectedArtistOrder(artistOrder), Times.once());
+            expect(component.orderedArtists[1]).toEqual(artist2);
+            expect(component.orderedArtists[3]).toEqual(artist1);
+        });
+
+        it('should show the headers for the ordered artists', () => {
+            // Arrange
+            semanticZoomHeaderAdderMock.setup((x) => x.addZoomHeaders([artist2, artist1])).returns(() => [artist2, artist1]);
+
+            artistsPersisterMock.reset();
+            artistsPersisterMock.setup((x) => x.getSelectedArtistOrder()).returns(() => ArtistOrder.byArtistDescending);
+
+            const component: ArtistBrowserComponent = createComponentWithSemanticZoomAdderMock();
+
+            component.artists = [artist1, artist2];
+            component.artistsPersister = artistsPersisterMock.object;
+            semanticZoomHeaderAdderMock.reset();
+            semanticZoomHeaderAdderMock.setup((x) => x.addZoomHeaders([artist1, artist2])).returns(() => [artist1, artist2]);
+
+            // Act
+            component.applyArtistOrder(ArtistOrder.byArtistAscending);
+
+            // Assert
+            semanticZoomHeaderAdderMock.verify((x) => x.addZoomHeaders(component.orderedArtists), Times.once());
+        });
+    });
+
+    describe('applyArtistType', () => {
+        it('should apply artist type', () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.artists = [artist1, artist2];
+            component.artistsPersister = artistsPersisterMock.object;
+            component.selectedArtistType = ArtistType.trackArtists;
+
+            const artistType = ArtistType.allArtists;
+
+            // Act
+            component.applyArtistType(artistType);
+
+            // Assert
+            expect(component.selectedArtistType).toEqual(artistType);
+            artistsPersisterMock.verify((x) => x.setSelectedArtistType(artistType), Times.once());
+        });
+    });
+
+    describe('onAddToQueueAsync', () => {
+        it('should add the selected artist for the selected artist type to the queue', async () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.selectedArtistType = ArtistType.albumArtists;
+
+            // Act
+            await component.onAddToQueueAsync(artist1);
+
+            // Assert
+            playbackServiceMock.verify((x) => x.addArtistToQueueAsync(artist1, ArtistType.albumArtists), Times.once());
+        });
+    });
+
+    describe('onShuffleAndPlayAsync', () => {
+        it('should force shuffle and play the selected artist', async () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.selectedArtistType = ArtistType.albumArtists;
+
+            // Act
+            await component.onShuffleAndPlayAsync(artist1);
+
+            // Assert
+            playbackServiceMock.verify((x) => x.forceShuffled(), Times.once());
+            playbackServiceMock.verify((x) => x.enqueueAndPlayArtistAsync(artist1, ArtistType.albumArtists), Times.once());
+        });
+    });
+
+    describe('onEditArtistAsync', () => {
+        it('should force shuffle and play the selected artist', async () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+
+            // Act
+            await component.onEditArtistAsync(artist1);
+
+            // Assert
+            dialogServiceMock.verify((x) => x.showEditArtistAsync(artist1), Times.once());
+        });
+    });
+
+    describe('shuffleAllAsync', () => {
+        it('should force shuffle and play all tracks', async () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.artistsPersister = artistsPersisterMock.object;
+            component.artists = [];
+
+            const tracks: TrackModels = new TrackModels();
+            trackServiceMock.setup((x) => x.getVisibleTracks()).returns(() => tracks);
+
+            // Act
+            await component.shuffleAllAsync();
+
+            // Assert
+            playbackServiceMock.verify((x) => x.forceShuffled(), Times.once());
+            playbackServiceMock.verify((x) => x.enqueueAndPlayTracksAsync(tracks.tracks), Times.once());
+        });
+    });
+
+    describe('enqueueAndPlayArtistAsync', () => {
+        it('should enqueue and play artist for selected artist type when artist is not a zoom header', async () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.selectedArtistType = ArtistType.trackArtists;
+            artist1.isZoomHeader = false;
+
+            // Act
+            await component.enqueueAndPlayArtistAsync(artist1);
+
+            // Assert
+            playbackServiceMock.verify((x) => x.enqueueAndPlayArtistAsync(artist1, ArtistType.trackArtists), Times.once());
+        });
+
+        it('should not enqueue and play artist when artist is a zoom header', async () => {
+            // Arrange
+            const component: ArtistBrowserComponent = createComponent();
+            component.selectedArtistType = ArtistType.trackArtists;
+            artist1.isZoomHeader = true;
+
+            // Act
+            await component.enqueueAndPlayArtistAsync(artist1);
+
+            // Assert
+            playbackServiceMock.verify((x) => x.enqueueAndPlayArtistAsync(It.isAny(), It.isAny()), Times.never());
+        });
+    });
+});

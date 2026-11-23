@@ -1,0 +1,260 @@
+name: Merge builds
+env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+on:
+    pull_request:
+        types: [closed]
+
+jobs:
+    merge_build_on_linux:
+        runs-on: ubuntu-22.04
+        if: github.event.pull_request.merged == true
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions/setup-node@master
+              with:
+                  node-version: '22.x'
+            - name: update package directory
+              run: sudo apt update
+            - name: install rpm and libarchive
+              run: sudo apt install rpm libarchive-tools
+            - name: install dependencies
+              run: npm install
+            - name: run unit tests
+              run: npm run test
+            - name: build
+              run: |
+                  for i in 1 2 3; do
+                    npm run electron:linux && break
+                    if [ "$i" -eq 3 ]; then
+                      echo "Linux build failed after 3 attempts"
+                      exit 1
+                    fi
+                    echo "Linux build failed (attempt $i), retrying in 30s..."
+                    sleep 30
+                  done
+            - name: repackage AppImage with fuse3 runtime
+              run: bash scripts/repackage-appimage-fuse3.sh release x86_64
+            - name: fetch current version
+              id: ver_name
+              uses: notiz-dev/github-action-json-property@release
+              with:
+                  path: 'package.json'
+                  prop_path: 'version'
+            - name: uploading rpm artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dopamine-merge-rpm
+                  path: release/Dopamine-*.rpm
+            - name: upload deb artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dopamine-merge-deb
+                  path: release/Dopamine-*.deb
+            - name: upload appimage artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dopamine-merge-appimage
+                  path: release/Dopamine-*.AppImage
+            - name: upload snap artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dopamine-merge-snap
+                  path: release/Dopamine-*.snap
+
+    merge_build_pacman_on_arch:
+        runs-on: ubuntu-22.04
+        if: github.event.pull_request.merged == true
+        container:
+            image: archlinux:latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+            - name: verify Node runtime
+              run: |
+                  node -v
+                  npm -v
+            - name: install Arch dependencies
+              run: |
+                  pacman -Syu --noconfirm
+                  pacman -S --noconfirm git python base-devel libarchive libxcrypt-compat
+            - name: install dependencies
+              run: npm install
+            - name: run unit tests
+              run: npm run test
+            - name: build pacman package
+              run: |
+                  npm run build:prod
+                  for i in 1 2 3; do
+                    npx electron-builder build --linux pacman --config electron-builder.config.js && break
+                    if [ "$i" -eq 3 ]; then
+                      echo "Pacman build failed after 3 attempts"
+                      exit 1
+                    fi
+                    echo "Pacman build failed (attempt $i), retrying in 30s..."
+                    sleep 30
+                  done
+            - name: upload pacman artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dopamine-merge-pacman
+                  path: release/Dopamine-*.pacman
+
+    merge_build_on_mac_arm:
+        runs-on: macos-15
+        if: github.event.pull_request.merged == true
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions/setup-node@master
+              with:
+                  node-version: '22.x'
+            - name: install dependencies
+              run: npm install
+            - name: run unit tests
+              run: npm run test
+            - name: build
+              run: npm run electron:mac
+            - name: name macOS ARM release asset
+              shell: bash
+              run: |
+                  shopt -s nullglob
+                  files=(release/Dopamine-*.dmg)
+                  if [ "${#files[@]}" -ne 1 ]; then
+                    echo "Expected exactly one macOS ARM DMG, found ${#files[@]}" >&2
+                    exit 1
+                  fi
+                  mv -- "${files[0]}" "${files[0]%.dmg}-arm.dmg"
+            - name: fetch current version
+              id: ver_name
+              uses: notiz-dev/github-action-json-property@release
+              with:
+                  path: 'package.json'
+                  prop_path: 'version'
+            - name: upload build artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dopamine-merge-macos-arm
+                  path: release/Dopamine-*.dmg
+
+    merge_build_on_mac_intel:
+        runs-on: macos-15-intel
+        if: github.event.pull_request.merged == true
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions/setup-node@master
+              with:
+                  node-version: '22.x'
+            - name: install dependencies
+              run: npm install
+            - name: run unit tests
+              run: npm run test
+            - name: build
+              run: npm run electron:mac
+            - name: name macOS Intel release asset
+              shell: bash
+              run: |
+                  shopt -s nullglob
+                  files=(release/Dopamine-*.dmg)
+                  if [ "${#files[@]}" -ne 1 ]; then
+                    echo "Expected exactly one macOS Intel DMG, found ${#files[@]}" >&2
+                    exit 1
+                  fi
+                  mv -- "${files[0]}" "${files[0]%.dmg}-intel.dmg"
+            - name: fetch current version
+              id: ver_name
+              uses: notiz-dev/github-action-json-property@release
+              with:
+                  path: 'package.json'
+                  prop_path: 'version'
+            - name: upload build artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dopamine-merge-macos-intel
+                  path: release/Dopamine-*.dmg
+
+    merge_build_on_win:
+        runs-on: windows-2022
+        if: github.event.pull_request.merged == true
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+            - name: Install dependencies
+              run: npm install
+            - name: Run unit tests
+              run: npm run test
+            - name: Build
+              run: npm run electron:windows
+            - name: Upload Windows installer for checksums
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dopamine-merge-windows-installer
+                  path: release/Dopamine-*.exe
+                  if-no-files-found: error
+            - name: Fetch current version
+              id: ver_name
+              uses: notiz-dev/github-action-json-property@release
+              with:
+                  path: package.json
+                  prop_path: version
+            # Use built-in 7zip (already installed on the runner)
+            - name: Create 7z Archive
+              shell: powershell
+              run: |
+                  cd release
+                  & "C:\Program Files\7-Zip\7z.exe" a ..\dopamine-nightly-win.7z Dopamine-*.exe
+            - name: Upload Build Artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dopamine-nightly-win
+                  path: dopamine-nightly-win.7z
+
+    merge_checksums:
+        runs-on: ubuntu-22.04
+        permissions:
+            actions: write
+            contents: read
+        needs:
+            - merge_build_on_linux
+            - merge_build_pacman_on_arch
+            - merge_build_on_mac_arm
+            - merge_build_on_mac_intel
+            - merge_build_on_win
+        steps:
+            - uses: actions/checkout@v4
+            - name: Download build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: build-artifacts
+                  pattern: dopamine-merge-*
+            - name: Generate release checksums
+              run: bash scripts/generate-release-checksums.sh build-artifacts merge > SHA256SUMS.txt
+            - name: Upload release checksums
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dopamine-merge-checksums
+                  path: SHA256SUMS.txt
+                  if-no-files-found: error
+            - name: Delete temporary Windows installer artifact
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const artifactName = 'dopamine-merge-windows-installer';
+                      const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        run_id: context.runId,
+                      });
+                      const matches = artifacts.filter((artifact) => artifact.name === artifactName);
+                      if (matches.length !== 1) {
+                        throw new Error(`Expected exactly one ${artifactName} artifact, found ${matches.length}`);
+                      }
+                      await github.rest.actions.deleteArtifact({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        artifact_id: matches[0].id,
+                      });
+                      core.info(`Deleted temporary artifact ${artifactName}`);

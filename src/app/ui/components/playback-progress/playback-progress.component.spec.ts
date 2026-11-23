@@ -1,0 +1,694 @@
+import { ElementRef, NgZone } from '@angular/core';
+import { Observable, Subject } from 'rxjs';
+import { IMock, It, Mock, Times } from 'typemoq';
+import { PlaybackProgressComponent } from './playback-progress.component';
+import { PlaybackService } from '../../../services/playback/playback.service';
+import { MathExtensions } from '../../../common/math-extensions';
+import { NativeElementProxy } from '../../../common/native-element-proxy';
+import { SettingsBase } from '../../../common/settings/settings.base';
+import { Logger } from '../../../common/logger';
+import { PlaybackProgress } from '../../../services/playback/playback-progress';
+import { PlaybackStarted } from '../../../services/playback/playback-started';
+
+describe('PlaybackProgressComponent', () => {
+    let component: PlaybackProgressComponent;
+    let playbackServiceMock: IMock<PlaybackService>;
+    let mathExtensionsMock: IMock<MathExtensions>;
+    let nativeElementProxyMock: IMock<NativeElementProxy>;
+    let settingsMock: IMock<SettingsBase>;
+    let ngZoneMock: IMock<NgZone>;
+    let loggerMock: IMock<Logger>;
+    let progressTrackElementRef: ElementRef;
+
+    let playbackServiceProgressChanged: Subject<PlaybackProgress>;
+
+    beforeEach(() => {
+        playbackServiceMock = Mock.ofType<PlaybackService>();
+        mathExtensionsMock = Mock.ofType<MathExtensions>();
+        nativeElementProxyMock = Mock.ofType<NativeElementProxy>();
+        settingsMock = Mock.ofType<SettingsBase>();
+        ngZoneMock = Mock.ofType<NgZone>();
+        loggerMock = Mock.ofType<Logger>();
+        progressTrackElementRef = new ElementRef({});
+        component = new PlaybackProgressComponent(
+            playbackServiceMock.object,
+            mathExtensionsMock.object,
+            nativeElementProxyMock.object,
+            settingsMock.object,
+            ngZoneMock.object,
+            loggerMock.object,
+        );
+
+        nativeElementProxyMock.setup((x) => x.getElementWidth(progressTrackElementRef)).returns(() => 500);
+
+        component.progressTrack = progressTrackElementRef;
+
+        playbackServiceProgressChanged = new Subject();
+        const playbackServiceProgressChanged$: Observable<PlaybackProgress> = playbackServiceProgressChanged.asObservable();
+
+        playbackServiceMock.setup((x) => x.progressChanged$).returns(() => playbackServiceProgressChanged$);
+        playbackServiceMock.setup((x) => x.playbackStarted$).returns(() => new Subject<PlaybackStarted>().asObservable());
+        playbackServiceMock.setup((x) => x.playbackResumed$).returns(() => new Subject<void>().asObservable());
+        playbackServiceMock.setup((x) => x.playbackPaused$).returns(() => new Subject<void>().asObservable());
+        playbackServiceMock.setup((x) => x.playbackStopped$).returns(() => new Subject<void>().asObservable());
+
+        component.ngOnInit();
+    });
+
+    describe('constructor', () => {
+        it('should create', () => {
+            // Arrange
+
+            // Act
+
+            // Assert
+            expect(component).toBeDefined();
+        });
+
+        it('should initialize showProgressThumb as false', () => {
+            // Arrange
+
+            // Act
+
+            // Assert
+            expect(component.showProgressThumb).toBeFalsy();
+        });
+
+        it('should initialize isProgressThumbClicked as false', () => {
+            // Arrange
+
+            // Act
+
+            // Assert
+            expect(component.isProgressThumbDown).toBeFalsy();
+        });
+
+        it('should initialize progressBarPosition as 0', () => {
+            // Arrange
+
+            // Act
+
+            // Assert
+            expect(component.progressBarPosition).toEqual(0);
+        });
+
+        it('should initialize progressThumbPosition as 0', () => {
+            // Arrange
+
+            // Act
+
+            // Assert
+            expect(component.progressThumbPosition).toEqual(0);
+        });
+
+        it('should initialize isProgressDragged as false', () => {
+            // Arrange
+
+            // Act
+
+            // Assert
+            expect(component.isProgressDragged).toBeFalsy();
+        });
+
+        it('should initialize isProgressContainerDown as false', () => {
+            // Arrange
+
+            // Act
+
+            // Assert
+            expect(component.isProgressContainerDown).toBeFalsy();
+        });
+    });
+
+    describe('ngOnInit', () => {
+        it('should indicate that the progress thumb is down', () => {
+            // Arrange
+            component.isProgressThumbDown = false;
+
+            // Act
+            component.progressThumbMouseDown();
+
+            // Assert
+            expect(component.isProgressThumbDown).toBeTruthy();
+        });
+
+        it('should not update the progress if progress thumb is down and progress container is down', () => {
+            // Arrange
+            component.isProgressThumbDown = true;
+            component.isProgressContainerDown = true;
+
+            // Act
+            playbackServiceProgressChanged.next(new PlaybackProgress(30, 300));
+
+            // Assert
+            expect(component.progressBarPosition).toEqual(0);
+            expect(component.progressThumbPosition).toEqual(0);
+            mathExtensionsMock.verify((x) => x.clamp(It.isAny(), It.isAny(), It.isAny()), Times.never());
+        });
+
+        it('should not update the progress if progress thumb is down but progress container is not down', () => {
+            // Arrange
+            component.isProgressThumbDown = true;
+            component.isProgressContainerDown = false;
+
+            // Act
+            playbackServiceProgressChanged.next(new PlaybackProgress(30, 300));
+
+            // Assert
+            expect(component.progressBarPosition).toEqual(0);
+            expect(component.progressThumbPosition).toEqual(0);
+            mathExtensionsMock.verify((x) => x.clamp(It.isAny(), It.isAny(), It.isAny()), Times.never());
+        });
+
+        it('should not update the progress if progress thumb is not down but progress container is down', () => {
+            // Arrange
+            component.isProgressThumbDown = false;
+            component.isProgressContainerDown = true;
+
+            // Act
+            playbackServiceProgressChanged.next(new PlaybackProgress(30, 300));
+
+            // Assert
+            expect(component.progressBarPosition).toEqual(0);
+            expect(component.progressThumbPosition).toEqual(0);
+            mathExtensionsMock.verify((x) => x.clamp(It.isAny(), It.isAny(), It.isAny()), Times.never());
+        });
+
+        it('should update the progress if progress thumb is not down and progress container is not down', () => {
+            // Arrange
+            component.isProgressThumbDown = false;
+            component.isProgressContainerDown = false;
+            mathExtensionsMock.setup((x) => x.clamp(44, 0, 488)).returns(() => 44);
+
+            // Act
+            playbackServiceProgressChanged.next(new PlaybackProgress(30, 300));
+
+            // Assert
+            expect(component.progressBarPosition).toEqual(50);
+            expect(component.progressThumbPosition).toEqual(44);
+            mathExtensionsMock.verify((x) => x.clamp(44, 0, 488), Times.exactly(1));
+        });
+
+        it('should not update the progress if progress thumb is not down and progress container is not down and total progress seconds is 0', () => {
+            // Arrange
+            component.isProgressThumbDown = false;
+            component.isProgressContainerDown = false;
+
+            // Act
+            playbackServiceProgressChanged.next(new PlaybackProgress(30, 0));
+
+            // Assert
+            expect(component.progressBarPosition).toEqual(0);
+            expect(component.progressThumbPosition).toEqual(0);
+            mathExtensionsMock.verify((x) => x.clamp(It.isAny(), It.isAny(), It.isAny()), Times.never());
+        });
+    });
+
+    describe('ngAfterViewInit', () => {
+        it('should update the progress from playbackService immediately', () => {
+            // Arrange
+            mathExtensionsMock.setup((x) => x.clamp(44, 0, 488)).returns(() => 44);
+            playbackServiceMock.setup((x) => x.progress).returns(() => new PlaybackProgress(30, 300));
+
+            // Act
+            jest.useFakeTimers();
+            component.ngAfterViewInit();
+            jest.runAllTimers();
+
+            // Assert
+            expect(component.progressBarPosition).toEqual(50);
+            expect(component.progressThumbPosition).toEqual(44);
+            mathExtensionsMock.verify((x) => x.clamp(44, 0, 488), Times.exactly(1));
+        });
+
+        it('should clip the footer along the wave and restore it when disabled', () => {
+            let showWaveProgress: boolean = true;
+            const container: HTMLElement = document.createElement('div');
+            container.className = 'window-frame';
+            const footer: HTMLElement = document.createElement('div');
+            footer.className = 'theme-footer-background';
+            const progressContainer: HTMLElement = document.createElement('div');
+            const svg: SVGSVGElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            const path: SVGPathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            container.append(footer, progressContainer);
+            progressContainer.append(svg);
+            svg.append(path);
+            component.progressContainer = new ElementRef(progressContainer);
+            component.waveSvg = new ElementRef(svg);
+            component.wavePath = new ElementRef(path);
+            settingsMock.setup((x) => x.showWaveProgress).returns(() => showWaveProgress);
+            playbackServiceMock.setup((x) => x.progress).returns(() => new PlaybackProgress(150, 300));
+            mathExtensionsMock.setup((x) => x.clamp(244, 0, 488)).returns(() => 244);
+
+            jest.useFakeTimers();
+            component.ngAfterViewInit();
+            jest.runAllTimers();
+
+            expect(footer.style.height).toBe('84px');
+            expect(footer.style.clipPath).toContain('polygon(');
+            expect(path.getAttribute('d')).toContain('L 250 6');
+
+            showWaveProgress = false;
+            component.ngDoCheck();
+
+            expect(footer.style.clipPath).toBe('');
+            expect(footer.style.height).toBe('');
+            component.ngOnDestroy();
+        });
+
+        it('should clip the mini player cover along the wave and restore it when disabled', () => {
+            let showWaveProgress: boolean = true;
+            const player: HTMLElement = document.createElement('app-cover-player');
+            const coverPane: HTMLElement = document.createElement('div');
+            coverPane.className = 'cover-player__cover-pane';
+            const progressContainer: HTMLElement = document.createElement('div');
+            const svg: SVGSVGElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            const path: SVGPathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            player.append(coverPane, progressContainer);
+            progressContainer.append(svg);
+            svg.append(path);
+            component.progressContainer = new ElementRef(progressContainer);
+            component.waveSvg = new ElementRef(svg);
+            component.wavePath = new ElementRef(path);
+            settingsMock.setup((x) => x.showWaveProgress).returns(() => showWaveProgress);
+            playbackServiceMock.setup((x) => x.progress).returns(() => new PlaybackProgress(150, 300));
+            mathExtensionsMock.setup((x) => x.clamp(244, 0, 488)).returns(() => 244);
+
+            jest.useFakeTimers();
+            component.ngAfterViewInit();
+            jest.runAllTimers();
+
+            expect(coverPane.style.clipPath).toContain('polygon(0 0, 100% 0');
+            expect(coverPane.style.clipPath).toContain('250px');
+            expect(path.getAttribute('d')).toContain('L 250 6');
+
+            showWaveProgress = false;
+            component.ngDoCheck();
+
+            expect(coverPane.style.clipPath).toBe('');
+            component.ngOnDestroy();
+        });
+    });
+
+    describe('progressThumbMouseDown', () => {
+        it('should indicate that the progress thumb is down', () => {
+            // Arrange
+            component.isProgressThumbDown = false;
+
+            // Act
+            component.progressThumbMouseDown();
+
+            // Assert
+            expect(component.isProgressThumbDown).toBeTruthy();
+        });
+    });
+
+    describe('progressContainerMouseEnter', () => {
+        it('should show the progress thumb', () => {
+            // Arrange
+            component.showProgressThumb = false;
+
+            // Act
+            component.progressContainerMouseEnter();
+
+            // Assert
+            expect(component.showProgressThumb).toBeTruthy();
+        });
+    });
+
+    describe('progressContainerMouseLeave', () => {
+        it('should hide the progress thumb if the progress thumb is not down', () => {
+            // Arrange
+            component.showProgressThumb = true;
+            component.isProgressThumbDown = false;
+
+            // Act
+            component.progressContainerMouseLeave();
+
+            // Assert
+            expect(component.showProgressThumb).toBeFalsy();
+        });
+
+        it('should not hide the progress thumb if the progress thumb is down', () => {
+            // Arrange
+            component.showProgressThumb = true;
+            component.isProgressThumbDown = true;
+
+            // Act
+            component.progressContainerMouseLeave();
+
+            // Assert
+            expect(component.showProgressThumb).toBeTruthy();
+        });
+    });
+
+    describe('progressContainerMouseDown', () => {
+        it('should indicate that the progress container is down', () => {
+            // Arrange
+            component.isProgressContainerDown = false;
+            const mouseEvent: any = { pageX: 40 };
+            mathExtensionsMock.setup((x) => x.clamp(40, 0, 500)).returns(() => 40);
+            mathExtensionsMock.setup((x) => x.clamp(34, 0, 488)).returns(() => 34);
+
+            // Act
+            component.progressContainerMouseDown(mouseEvent);
+
+            // Assert
+            expect(component.isProgressContainerDown).toBeTruthy();
+        });
+
+        it('should update the progress if playbackService is playing', () => {
+            // Arrange
+            const mouseEvent: any = { pageX: 40 };
+            mathExtensionsMock.setup((x) => x.clamp(40, 0, 500)).returns(() => 40);
+            mathExtensionsMock.setup((x) => x.clamp(34, 0, 488)).returns(() => 34);
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => true);
+
+            // Act
+            component.progressContainerMouseDown(mouseEvent);
+
+            // Assert
+            mathExtensionsMock.verify((x) => x.clamp(40, 0, 500), Times.exactly(1));
+            expect(component.progressBarPosition).toEqual(40);
+            mathExtensionsMock.verify((x) => x.clamp(34, 0, 488), Times.exactly(1));
+            expect(component.progressThumbPosition).toEqual(34);
+        });
+
+        it('should update not the progress if playbackService is not playing', () => {
+            // Arrange
+            const mouseEvent: any = { pageX: 40 };
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => false);
+
+            // Act
+            component.progressContainerMouseDown(mouseEvent);
+
+            // Assert
+            mathExtensionsMock.verify((x) => x.clamp(It.isAny(), It.isAny(), It.isAny()), Times.never());
+            expect(component.progressBarPosition).toEqual(0);
+            expect(component.progressThumbPosition).toEqual(0);
+        });
+    });
+
+    describe('onMouseMove', () => {
+        it('should indicate that progress is not being dragged if progress thumb is not down', () => {
+            // Arrange
+            component.isProgressDragged = false;
+            component.isProgressThumbDown = false;
+            const mouseEvent: any = { pageX: 30 };
+
+            // Act
+            component.onMouseMove(mouseEvent);
+
+            // Assert
+            expect(component.isProgressDragged).toBeFalsy();
+        });
+
+        it('should indicate that progress is being dragged if progress thumb is down', () => {
+            // Arrange
+            component.isProgressDragged = false;
+            component.isProgressThumbDown = true;
+            const mouseEvent: any = { pageX: 30 };
+
+            // Act
+            component.onMouseMove(mouseEvent);
+
+            // Assert
+            expect(component.isProgressDragged).toBeTruthy();
+        });
+
+        it('should not update the progress if progress thumb is not down', () => {
+            // Arrange
+            component.progressThumbPosition = 0;
+            component.isProgressThumbDown = false;
+            const mouseEvent: any = { pageX: 40 };
+            mathExtensionsMock.setup((x) => x.clamp(40, 0, 500)).returns(() => 40);
+            mathExtensionsMock.setup((x) => x.clamp(34, 0, 488)).returns(() => 34);
+
+            // Act
+            component.onMouseMove(mouseEvent);
+
+            // Assert
+            mathExtensionsMock.verify((x) => x.clamp(It.isAny(), It.isAny(), It.isAny()), Times.never());
+            expect(component.progressBarPosition).toEqual(0);
+            mathExtensionsMock.verify((x) => x.clamp(It.isAny(), It.isAny(), It.isAny()), Times.never());
+            expect(component.progressThumbPosition).toEqual(0);
+        });
+
+        it('should update the progress if progress thumb is down and playback is in progress', () => {
+            // Arrange
+            component.progressBarPosition = 0;
+            component.isProgressThumbDown = true;
+            const mouseEvent: any = { pageX: 40 };
+            mathExtensionsMock.setup((x) => x.clamp(40, 0, 500)).returns(() => 40);
+            mathExtensionsMock.setup((x) => x.clamp(34, 0, 488)).returns(() => 34);
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => true);
+
+            // Act
+            component.onMouseMove(mouseEvent);
+
+            // Assert
+            mathExtensionsMock.verify((x) => x.clamp(40, 0, 500), Times.exactly(1));
+            expect(component.progressBarPosition).toEqual(40);
+            mathExtensionsMock.verify((x) => x.clamp(34, 0, 488), Times.exactly(1));
+            expect(component.progressThumbPosition).toEqual(34);
+        });
+
+        it('should not update the progress if progress thumb is down and playback is in not progress', () => {
+            // Arrange
+            component.progressBarPosition = 0;
+            component.isProgressThumbDown = true;
+            const mouseEvent: any = { pageX: 40 };
+            mathExtensionsMock.setup((x) => x.clamp(40, 0, 500)).returns(() => 40);
+            mathExtensionsMock.setup((x) => x.clamp(34, 0, 488)).returns(() => 34);
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => false);
+
+            // Act
+            component.onMouseMove(mouseEvent);
+
+            // Assert
+            mathExtensionsMock.verify((x) => x.clamp(It.isAny(), It.isAny(), It.isAny()), Times.never());
+            expect(component.progressBarPosition).toEqual(0);
+            expect(component.progressThumbPosition).toEqual(0);
+        });
+    });
+
+    describe('onMouseUp', () => {
+        it('should indicate that the progress thumb is not down', () => {
+            // Arrange
+            component.isProgressThumbDown = true;
+            component.showProgressThumb = true;
+            component.isProgressDragged = true;
+            component.isProgressContainerDown = true;
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => true);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            expect(component.isProgressThumbDown).toBeFalsy();
+        });
+
+        it('should indicate that the progress thumb is not shown', () => {
+            // Arrange
+            component.isProgressThumbDown = true;
+            component.showProgressThumb = true;
+            component.isProgressDragged = true;
+            component.isProgressContainerDown = true;
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => true);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            expect(component.showProgressThumb).toBeFalsy();
+        });
+
+        it('should indicate that the progress is not being dragged anymore if the progress is being dragged', () => {
+            // Arrange
+            component.isProgressThumbDown = true;
+            component.showProgressThumb = true;
+            component.isProgressDragged = true;
+            component.isProgressContainerDown = false;
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => true);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            expect(component.isProgressDragged).toBeFalsy();
+        });
+
+        it('should indicate that the progress is not being dragged anymore if the progress container is down', () => {
+            // Arrange
+            component.isProgressThumbDown = true;
+            component.showProgressThumb = true;
+            component.isProgressDragged = true;
+            component.isProgressContainerDown = true;
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => true);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            expect(component.isProgressDragged).toBeFalsy();
+        });
+
+        it('should indicate that the progress container is not down anymore anymore if the progress is being dragged', () => {
+            // Arrange
+            component.isProgressThumbDown = true;
+            component.showProgressThumb = true;
+            component.isProgressDragged = true;
+            component.isProgressContainerDown = true;
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => true);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            expect(component.isProgressContainerDown).toBeFalsy();
+        });
+
+        it('should indicate that the progress container is not down anymore if the progress container is down', () => {
+            // Arrange
+            component.isProgressThumbDown = true;
+            component.showProgressThumb = true;
+            component.isProgressDragged = false;
+            component.isProgressContainerDown = true;
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => true);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            expect(component.isProgressContainerDown).toBeFalsy();
+        });
+
+        it('should not skip playback when progress is not dragged and progress container is not down', () => {
+            // Arrange
+            component.isProgressDragged = false;
+            component.isProgressContainerDown = false;
+
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => true);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            playbackServiceMock.verify((x) => x.skipByFractionOfTotalSecondsAsync(It.isAny()), Times.never());
+        });
+
+        it('should skip playback when progress is dragged and progress container is not down and playback is started', () => {
+            // Arrange
+            component.progressBarPosition = 0;
+            component.isProgressDragged = true;
+            component.isProgressContainerDown = false;
+            component.isProgressThumbDown = true;
+            const mouseEvent: any = { pageX: 40 };
+            mathExtensionsMock.setup((x) => x.clamp(40, 0, 500)).returns(() => 40);
+            mathExtensionsMock.setup((x) => x.clamp(34, 0, 488)).returns(() => 34);
+            component.onMouseMove(mouseEvent);
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => true);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            playbackServiceMock.verify((x) => x.skipByFractionOfTotalSecondsAsync(40 / 500), Times.exactly(1));
+        });
+
+        it('should skip playback when progress is not dragged and progress container is down and playback is started', () => {
+            // Arrange
+            component.progressBarPosition = 0;
+            component.isProgressDragged = false;
+            component.isProgressContainerDown = true;
+            component.isProgressThumbDown = true;
+            const mouseEvent: any = { pageX: 40 };
+            mathExtensionsMock.setup((x) => x.clamp(40, 0, 500)).returns(() => 40);
+            mathExtensionsMock.setup((x) => x.clamp(34, 0, 488)).returns(() => 34);
+            component.onMouseMove(mouseEvent);
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => true);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            playbackServiceMock.verify((x) => x.skipByFractionOfTotalSecondsAsync(40 / 500), Times.exactly(1));
+        });
+
+        it('should skip playback when progress is dragged and progress container is down and playback is started', () => {
+            // Arrange
+            component.progressBarPosition = 0;
+            component.isProgressDragged = true;
+            component.isProgressContainerDown = true;
+            component.isProgressThumbDown = true;
+            const mouseEvent: any = { pageX: 40 };
+            mathExtensionsMock.setup((x) => x.clamp(40, 0, 500)).returns(() => 40);
+            mathExtensionsMock.setup((x) => x.clamp(34, 0, 488)).returns(() => 34);
+            component.onMouseMove(mouseEvent);
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => true);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            playbackServiceMock.verify((x) => x.skipByFractionOfTotalSecondsAsync(40 / 500), Times.exactly(1));
+        });
+
+        it('should not skip playback when progress is dragged and progress container is not down and playback is stopped', () => {
+            // Arrange
+            component.progressBarPosition = 0;
+            component.isProgressDragged = true;
+            component.isProgressContainerDown = false;
+            component.isProgressThumbDown = true;
+            const mouseEvent: any = { pageX: 40 };
+            mathExtensionsMock.setup((x) => x.clamp(40, 0, 500)).returns(() => 40);
+            mathExtensionsMock.setup((x) => x.clamp(34, 0, 488)).returns(() => 34);
+            component.onMouseMove(mouseEvent);
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => false);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            playbackServiceMock.verify((x) => x.skipByFractionOfTotalSecondsAsync(It.isAny()), Times.never());
+        });
+
+        it('should not skip playback when progress is not dragged and progress container is down and playback is stopped', () => {
+            // Arrange
+            component.progressBarPosition = 0;
+            component.isProgressDragged = false;
+            component.isProgressContainerDown = true;
+            component.isProgressThumbDown = true;
+            const mouseEvent: any = { pageX: 40 };
+            mathExtensionsMock.setup((x) => x.clamp(40, 0, 500)).returns(() => 40);
+            mathExtensionsMock.setup((x) => x.clamp(34, 0, 488)).returns(() => 34);
+            component.onMouseMove(mouseEvent);
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => false);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            playbackServiceMock.verify((x) => x.skipByFractionOfTotalSecondsAsync(It.isAny()), Times.never());
+        });
+
+        it('should not skip playback when progress is dragged and progress container is down and playback is stopped', () => {
+            // Arrange
+            component.progressBarPosition = 0;
+            component.isProgressDragged = true;
+            component.isProgressContainerDown = true;
+            component.isProgressThumbDown = true;
+            const mouseEvent: any = { pageX: 40 };
+            mathExtensionsMock.setup((x) => x.clamp(40, 0, 500)).returns(() => 40);
+            mathExtensionsMock.setup((x) => x.clamp(34, 0, 488)).returns(() => 34);
+            component.onMouseMove(mouseEvent);
+            playbackServiceMock.setup((x) => x.isPlaying).returns(() => false);
+
+            // Act
+            component.onMouseUp();
+
+            // Assert
+            playbackServiceMock.verify((x) => x.skipByFractionOfTotalSecondsAsync(It.isAny()), Times.never());
+        });
+    });
+});

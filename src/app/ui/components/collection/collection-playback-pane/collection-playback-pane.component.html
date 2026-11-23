@@ -1,0 +1,46 @@
+<div class="app-collection-playback-pane">
+    <app-playback-progress class="app-collection-playback-pane__progressbar"></app-playback-progress>
+    <div class="app-collection-playback-pane__controls">
+        <div class="app-collection-playback-pane-controls__left">
+            <app-playback-cover-art
+                class="app-collection-playback-pane__cover pointer"
+                [size]="59"
+                [borderRadius]="this.settings.showSquareImages ? 0 : 4"
+                (click)="this.showNowPlayingAsync()"
+                matTooltip="{{ 'now-playing' | translate }}"
+            ></app-playback-cover-art
+            ><app-playback-information
+                class="app-collection-playback-pane-controls__playbackinformation ml-2"
+                [height]="75"
+                [largeFontSize]="this.appearanceService.selectedFontSize"
+                [smallFontSize]="this.appearanceService.selectedFontSize"
+                position="center"
+                [showRating]="this.settings.showRating"
+                [showLove]="this.settings.showLove"
+            ></app-playback-information>
+        </div>
+        <div class="app-collection-playback-pane-controls__center">
+            <app-playback-controls></app-playback-controls>
+        </div>
+        <div class="app-collection-playback-pane-controls__right">
+            <app-playback-time class="app-collection-playback-pane-controls__time mr-4"></app-playback-time>
+            <app-playback-speed-control class="mr-2"></app-playback-speed-control>
+            <i
+                class="app-collection-playback-pane-controls__buttons las la-chart-pie pointer mr-2"
+                (click)="this.showHighlightsAsync()"
+                matTooltip="{{ 'highlights' | translate }}"
+            ></i>
+            <i
+                class="app-collection-playback-pane-controls__buttons las la-sliders-h pointer mr-2"
+                (click)="this.showEqualizerAsync()"
+                matTooltip="{{ 'equalizer' | translate }}"
+            ></i>
+            <i
+                class="app-collection-playback-pane-controls__buttons las la-tasks pointer mr-4"
+                (click)="this.showPlaybackQueue()"
+                matTooltip="{{ 'playback-queue' | translate }}"
+            ></i>
+            <app-volume-control class="app-collection-playback-pane_volume mr-3"></app-volume-control>
+        </div>
+    </div>
+</div>

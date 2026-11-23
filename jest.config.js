@@ -1,0 +1,27 @@
+const { pathsToModuleNameMapper } = require('ts-jest');
+const { compilerOptions } = require('./tsconfig.base');
+
+module.exports = {
+    preset: 'jest-preset-angular',
+    roots: ['<rootDir>/src', '<rootDir>/main'],
+    modulePathIgnorePatterns: ['<rootDir>/release/', '<rootDir>/dist/'],
+    testMatch: ['<rootDir>/src/**/*(*.)+(spec).+(ts)', '<rootDir>/main/**/*(*.)+(spec).+(js)'],
+    testPathIgnorePatterns: ['<rootDir>/src/app/data/repositories/'],
+    setupFilesAfterEnv: ['<rootDir>/src/test.ts'],
+    testEnvironmentOptions: {
+        customExportConditions: ['node', 'node-addons'],
+    },
+    moduleNameMapper: pathsToModuleNameMapper(compilerOptions.paths || {}, {
+        prefix: '<rootDir>/',
+    }),
+    transform: {
+        '^.+\\.{ts|tsx}?$': [
+            'ts-jest',
+            {
+                babel: true,
+                tsConfig: 'tsconfig.spec.json',
+            },
+        ],
+    },
+    setupFiles: ['<rootDir>/jest.setup.js'],
+};

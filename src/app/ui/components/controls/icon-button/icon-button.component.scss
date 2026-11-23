@@ -1,0 +1,33 @@
+.app-icon-button-wrap {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.app-icon-button-button {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    height: 25px;
+    width: 25px;
+    background: transparent;
+    border: 0;
+    transition: color 0.15s ease;
+    cursor: pointer;
+    outline: none;
+}
+
+.app-icon-button-button:hover {
+    color: var(--theme-accent-color);
+}
+
+.app-icon-button-icon {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    font-size: 18px;
+    line-height: 1;
+}

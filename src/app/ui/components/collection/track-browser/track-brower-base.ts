@@ -1,0 +1,98 @@
+import { Directive, ViewChild } from '@angular/core';
+import { MatMenuTrigger } from '@angular/material/menu';
+import { Logger } from '../../../../common/logger';
+import { TrackModel } from '../../../../services/track/track-model';
+import { AddToPlaylistMenu } from '../../add-to-playlist-menu';
+import { DialogServiceBase } from '../../../../services/dialog/dialog.service.base';
+import { CollectionServiceBase } from '../../../../services/collection/collection.service.base';
+import { TranslatorServiceBase } from '../../../../services/translator/translator.service.base';
+import { DesktopBase } from '../../../../common/io/desktop.base';
+import { SelectionWatcher } from '../../selection-watcher';
+import { ContextMenuOpener } from '../../context-menu-opener';
+import { PlaybackService } from '../../../../services/playback/playback.service';
+import { ScrollPositionService } from '../../../../services/scroll-position/scroll-position.service';
+import { SearchServiceBase } from '../../../../services/search/search.service.base';
+import { BaseVirtualScrollBrowser } from '../base-virtual-scroll-browser';
+
+@Directive()
+export class TrackBrowserBase extends BaseVirtualScrollBrowser {
+    public constructor(
+        public playbackService: PlaybackService,
+        public dialogService: DialogServiceBase,
+        public addToPlaylistMenu: AddToPlaylistMenu,
+        public contextMenuOpener: ContextMenuOpener,
+        public selectionWatcher: SelectionWatcher,
+        public logger: Logger,
+        private collectionService: CollectionServiceBase,
+        private translatorService: TranslatorServiceBase,
+        private desktop: DesktopBase,
+        scrollPositionService: ScrollPositionService,
+        searchService: SearchServiceBase,
+    ) {
+        super(scrollPositionService, searchService);
+    }
+
+    @ViewChild('trackContextMenuAnchor', { read: MatMenuTrigger, static: false })
+    public trackContextMenu: MatMenuTrigger;
+
+    public onTrackContextMenu(event: MouseEvent, track: TrackModel): void {
+        this.contextMenuOpener.open(this.trackContextMenu, event, track);
+    }
+
+    public async onAddToQueueAsync(): Promise<void> {
+        await this.playbackService.addTracksToQueueAsync(this.selectionWatcher.selectedItems as TrackModel[]);
+    }
+
+    public onShowInFolder(): void {
+        const tracks: TrackModel[] = this.selectionWatcher.selectedItems as TrackModel[];
+
+        if (tracks.length > 0) {
+            this.desktop.showFileInDirectory(tracks[0].path);
+        }
+    }
+
+    public async onEdit(): Promise<void> {
+        const tracks: TrackModel[] = this.selectionWatcher.selectedItems as TrackModel[];
+        const userHasConfirmed: boolean = await this.dialogService.showEditTracksAsync(tracks);
+
+        if (userHasConfirmed) {
+            // try {
+            //     if (!(await this.collectionService.deleteTracksAsync(tracks))) {
+            //         throw new Error('deleteTracksAsync returned false');
+            //     }
+            // } catch (e: unknown) {
+            //     this.logger.error(e, 'Could not delete all files', 'TrackBrowserBase', 'onDelete');
+            //
+            //     const errorText: string = await this.translatorService.getAsync('delete-songs-error');
+            //     this.dialogService.showErrorDialog(errorText);
+            // }
+        }
+    }
+
+    public async onDeleteAsync(): Promise<void> {
+        const tracks: TrackModel[] = this.selectionWatcher.selectedItems as TrackModel[];
+
+        let dialogTitle: string = await this.translatorService.getAsync('delete-song');
+        let dialogText: string = await this.translatorService.getAsync('confirm-delete-song');
+
+        if (tracks.length > 1) {
+            dialogTitle = await this.translatorService.getAsync('delete-songs');
+            dialogText = await this.translatorService.getAsync('confirm-delete-songs');
+        }
+
+        const userHasConfirmed: boolean = await this.dialogService.showConfirmationDialogAsync(dialogTitle, dialogText);
+
+        if (userHasConfirmed) {
+            try {
+                if (!(await this.collectionService.deleteTracksAsync(tracks))) {
+                    throw new Error('deleteTracksAsync returned false');
+                }
+            } catch (e: unknown) {
+                this.logger.error(e, 'Could not delete all files', 'TrackBrowserBase', 'onDelete');
+
+                const errorText: string = await this.translatorService.getAsync('delete-songs-error');
+                this.dialogService.showErrorDialog(errorText);
+            }
+        }
+    }
+}

@@ -1,0 +1,55 @@
+.add-folder-component {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.add-folder-component__indexing-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.add-folder-component__indexing-icon {
+    font-size: 28px;
+    color: var(--theme-accent-color);
+}
+
+.add-folder-component__indexing-text {
+    font-size: 14px;
+    color: var(--theme-accent-color);
+}
+
+.folder:hover {
+    background: var(--theme-hovered-item-background);
+}
+
+.folder__icon {
+    font-size: 18px;
+    color: var(--theme-accent-color);
+    transform: rotate(-90deg);
+}
+
+.folder__path {
+    flex: 1;
+}
+.folder__action {
+    font-size: 18px;
+    opacity: 0.4;
+    cursor: pointer;
+    display: none;
+}
+
+.folder:hover .folder__action {
+    background: var(--theme-hovered-item-background);
+    display: block !important;
+}
+
+.folder__checkbox {
+    margin-top: -4px !important;
+}

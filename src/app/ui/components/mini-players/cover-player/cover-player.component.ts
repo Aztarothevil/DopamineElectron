@@ -1,0 +1,150 @@
+import { AfterViewInit, Component, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import { AppearanceServiceBase } from '../../../../services/appearance/appearance.service.base';
+import { MatBottomSheet } from '@angular/material/bottom-sheet';
+import { CoverPlayerPlaybackQueueComponent } from './cover-player-playback-queue/cover-player-playback-queue.component';
+import { CoverPlayerVolumeControlComponent } from './cover-player-volume-control/cover-player-volume-control.component';
+import { NavigationServiceBase } from '../../../../services/navigation/navigation.service.base';
+import { enterLeftToRight, enterRightToLeft } from '../../../animations/animations';
+import { animate, state, style, transition, trigger } from '@angular/animations';
+import { DocumentProxy } from '../../../../common/io/document-proxy';
+import { AudioVisualizer } from '../../../../services/playback/audio-visualizer';
+import { AudioVisualizerServiceBase } from '../../../../services/audio-visualizer/audio-visualizer.service.base';
+import { ContextMenuOpener } from '../../context-menu-opener';
+import { MatMenuTrigger } from '@angular/material/menu';
+import { SettingsBase } from '../../../../common/settings/settings.base';
+import { DesktopBase } from '../../../../common/io/desktop.base';
+
+@Component({
+    selector: 'app-cover-player',
+    host: { style: 'display: block' },
+    templateUrl: './cover-player.component.html',
+    styleUrls: ['./cover-player.component.scss'],
+    encapsulation: ViewEncapsulation.None,
+    animations: [
+        enterLeftToRight,
+        enterRightToLeft,
+        trigger('controlsVisibility', [
+            state(
+                'visible',
+                style({
+                    opacity: 1,
+                }),
+            ),
+            state(
+                'hidden',
+                style({
+                    opacity: 0,
+                }),
+            ),
+            transition('hidden => visible', animate('.25s')),
+            transition('visible => hidden', animate('1s')),
+        ]),
+        trigger('songVisibility', [
+            state(
+                'visible',
+                style({
+                    opacity: 1,
+                }),
+            ),
+            state(
+                'hidden',
+                style({
+                    opacity: 0,
+                }),
+            ),
+            transition('hidden => visible', animate('.25s')),
+            transition('visible => hidden', animate('1s')),
+        ]),
+    ],
+})
+export class CoverPlayerComponent implements OnInit, AfterViewInit {
+    private timerId: number = 0;
+
+    public constructor(
+        public appearanceService: AppearanceServiceBase,
+        public contextMenuOpener: ContextMenuOpener,
+        public settings: SettingsBase,
+        private navigationService: NavigationServiceBase,
+        private _bottomSheet: MatBottomSheet,
+        public audioVisualizerService: AudioVisualizerServiceBase,
+        private audioVisualizer: AudioVisualizer,
+        private documentProxy: DocumentProxy,
+        private desktop: DesktopBase,
+    ) {}
+
+    @ViewChild('coverPlayerContextMenuAnchor', { read: MatMenuTrigger, static: false })
+    public coverPlayerContextMenu: MatMenuTrigger;
+
+    public controlsVisibility: string = 'visible';
+
+    public songVisibility: string = 'visible';
+
+    public playbackQueueIsVisible: boolean = false;
+
+    public ngOnInit(): void {
+        this.desktop.setWindowAlwaysOnTop(this.settings.miniPlayerAlwaysOnTop);
+
+        document.addEventListener('mousemove', () => {
+            this.resetTimer();
+        });
+
+        document.addEventListener('mousedown', () => {
+            this.resetTimer();
+        });
+
+        this.resetTimer();
+    }
+
+    public ngAfterViewInit(): void {
+        this.setAudioVisualizer();
+    }
+
+    private setAudioVisualizer(): void {
+        const canvas: HTMLCanvasElement = this.documentProxy.getCanvasById('coverPlayerAudioVisualizer');
+        this.audioVisualizer.connectCanvas(canvas);
+    }
+
+    private resetTimer(): void {
+        clearTimeout(this.timerId);
+
+        this.controlsVisibility = 'visible';
+        this.songVisibility = 'visible';
+
+        this.timerId = window.setTimeout(() => {
+            this.controlsVisibility = 'hidden';
+            if (!this.settings.miniPlayerAlwaysShowSong) {
+                this.songVisibility = 'hidden';
+            }
+        }, 5000);
+    }
+
+    public openPlaybackQueue(): void {
+        const ref = this._bottomSheet.open(CoverPlayerPlaybackQueueComponent);
+        this.navigationService.refreshPlaybackQueueList();
+        this.playbackQueueIsVisible = true;
+        ref.backdropClick().subscribe(() => {
+            this.playbackQueueIsVisible = false;
+        });
+    }
+
+    public openVolumeControl(): void {
+        this._bottomSheet.open(CoverPlayerVolumeControlComponent);
+    }
+
+    public onCoverPlayerContextMenu(event: MouseEvent): void {
+        this.contextMenuOpener.open(this.coverPlayerContextMenu, event, undefined);
+    }
+
+    public onAlwaysOnTop(): void {
+        this.settings.miniPlayerAlwaysOnTop = !this.settings.miniPlayerAlwaysOnTop;
+        this.desktop.setWindowAlwaysOnTop(this.settings.miniPlayerAlwaysOnTop);
+    }
+
+    public onLockPosition(): void {
+        this.settings.miniPlayerLockPosition = !this.settings.miniPlayerLockPosition;
+    }
+
+    public onAlwaysShowSong(): void {
+        this.settings.miniPlayerAlwaysShowSong = !this.settings.miniPlayerAlwaysShowSong;
+    }
+}

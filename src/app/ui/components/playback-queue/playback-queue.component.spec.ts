@@ -1,0 +1,390 @@
+import { Observable, Subject } from 'rxjs';
+import { IMock, It, Mock, Times } from 'typemoq';
+import { PlaybackQueueComponent } from './playback-queue.component';
+import { PlaybackService } from '../../../services/playback/playback.service';
+import { ContextMenuOpener } from '../context-menu-opener';
+import { SelectionWatcher } from '../selection-watcher';
+import { PlaybackIndicationServiceBase } from '../../../services/playback-indication/playback-indication.service.base';
+import { NavigationServiceBase } from '../../../services/navigation/navigation.service.base';
+import { DateTime } from '../../../common/date-time';
+import { TranslatorServiceBase } from '../../../services/translator/translator.service.base';
+import { TrackModels } from '../../../services/track/track-models';
+import { PlaybackStarted } from '../../../services/playback/playback-started';
+import { TrackModel } from '../../../services/track/track-model';
+import { Track } from '../../../data/entities/track';
+import { SettingsMock } from '../../../testing/settings-mock';
+import { SearchServiceBase } from '../../../services/search/search.service.base';
+import { CdkDragDrop } from '@angular/cdk/drag-drop';
+import { AddToPlaylistMenu } from '../add-to-playlist-menu';
+
+describe('PlaybackQueueComponent', () => {
+    let playbackServiceMock: IMock<PlaybackService>;
+    let addToPlaylistMenuMock: IMock<AddToPlaylistMenu>;
+    let contextMenuOpenerMock: IMock<ContextMenuOpener>;
+    let selectionWatcherMock: IMock<SelectionWatcher>;
+    let playbackIndicationServiceMock: IMock<PlaybackIndicationServiceBase>;
+    let navigationServiceMock: IMock<NavigationServiceBase>;
+    let searchServiceMock: IMock<SearchServiceBase>;
+    let dateTimeMock: IMock<DateTime>;
+    let translatorServiceMock: IMock<TranslatorServiceBase>;
+    let playbackQueue: TrackModels;
+    let playbackServicePlaybackStarted: Subject<PlaybackStarted>;
+    let navigationServiceShowPlaybackQueueRequested: Subject<void>;
+    let refreshPlaybackQueueListRequested: Subject<void>;
+    let settingsMock: any;
+
+    function createComponent(): PlaybackQueueComponent {
+        return new PlaybackQueueComponent(
+            playbackServiceMock.object,
+            addToPlaylistMenuMock.object,
+            contextMenuOpenerMock.object,
+            selectionWatcherMock.object,
+            playbackIndicationServiceMock.object,
+            navigationServiceMock.object,
+            searchServiceMock.object,
+            settingsMock,
+        );
+    }
+
+    beforeEach(() => {
+        playbackServiceMock = Mock.ofType<PlaybackService>();
+        addToPlaylistMenuMock = Mock.ofType<AddToPlaylistMenu>();
+        contextMenuOpenerMock = Mock.ofType<ContextMenuOpener>();
+        selectionWatcherMock = Mock.ofType<SelectionWatcher>();
+        playbackIndicationServiceMock = Mock.ofType<PlaybackIndicationServiceBase>();
+        navigationServiceMock = Mock.ofType<NavigationServiceBase>();
+        searchServiceMock = Mock.ofType<SearchServiceBase>();
+        dateTimeMock = Mock.ofType<DateTime>();
+        translatorServiceMock = Mock.ofType<TranslatorServiceBase>();
+        settingsMock = new SettingsMock();
+
+        searchServiceMock
+            .setup((x) =>
+                x.matchesSearchText('dummy title dummy album dummy album artist dummy artist dummy.mp3 1999 dummy genre', 'dummy'),
+            )
+            .returns(() => true);
+        searchServiceMock.setup((x) => x.matchesSearchText(It.isAny(), It.isAny())).returns(() => false);
+
+        playbackServicePlaybackStarted = new Subject();
+        const playbackServicePlaybackStarted$: Observable<PlaybackStarted> = playbackServicePlaybackStarted.asObservable();
+        playbackServiceMock.setup((x) => x.playbackStarted$).returns(() => playbackServicePlaybackStarted$);
+
+        playbackQueue = new TrackModels();
+        playbackQueue.addTrack(new TrackModel(new Track('DummyPath'), dateTimeMock.object, translatorServiceMock.object, settingsMock));
+
+        playbackServiceMock.setup((x) => x.playbackQueue).returns(() => playbackQueue);
+
+        navigationServiceShowPlaybackQueueRequested = new Subject();
+        const navigationServiceShowPlaybackQueueRequested$: Observable<void> = navigationServiceShowPlaybackQueueRequested.asObservable();
+        navigationServiceMock.setup((x) => x.showPlaybackQueueRequested$).returns(() => navigationServiceShowPlaybackQueueRequested$);
+
+        refreshPlaybackQueueListRequested = new Subject();
+        const refreshPlaybackQueueListRequested$: Observable<void> = refreshPlaybackQueueListRequested.asObservable();
+        navigationServiceMock.setup((x) => x.refreshPlaybackQueueListRequested$).returns(() => refreshPlaybackQueueListRequested$);
+    });
+
+    describe('constructor', () => {
+        it('should create', () => {
+            // Arrange
+
+            // Act
+            const component: PlaybackQueueComponent = createComponent();
+
+            // Assert
+            expect(component).toBeDefined();
+        });
+
+        it('should define playbackService', () => {
+            // Arrange
+
+            // Act
+            const component: PlaybackQueueComponent = createComponent();
+
+            // Assert
+            expect(component.playbackService).toBeDefined();
+        });
+
+        it('should define contextMenuOpener', () => {
+            // Arrange
+
+            // Act
+            const component: PlaybackQueueComponent = createComponent();
+
+            // Assert
+            expect(component.contextMenuOpener).toBeDefined();
+        });
+
+        it('should declare trackContextMenu', () => {
+            // Arrange
+
+            // Act
+            const component: PlaybackQueueComponent = createComponent();
+
+            // Assert
+            expect(component.trackContextMenu).toBeUndefined();
+        });
+
+        it('should define selectionWatcher', () => {
+            // Arrange
+
+            // Act
+            const component: PlaybackQueueComponent = createComponent();
+
+            // Assert
+            expect(component.selectionWatcher).toBeDefined();
+        });
+
+        it('should initialize shouldShowList as false', () => {
+            // Arrange
+
+            // Act
+            const component: PlaybackQueueComponent = createComponent();
+
+            // Assert
+            expect(component.shouldShowList).toBeFalsy();
+        });
+    });
+
+    describe('ngOnInit', () => {
+        it('should set the playing track when playback starts', () => {
+            // Arrange
+            const trackModel: TrackModel = new TrackModel(
+                new Track('DummyPath'),
+                dateTimeMock.object,
+                translatorServiceMock.object,
+                settingsMock,
+            );
+            const playbackStarted: PlaybackStarted = new PlaybackStarted(trackModel, false);
+            const component: PlaybackQueueComponent = createComponent();
+
+            // Act
+            component.ngOnInit();
+            playbackServicePlaybackStarted.next(playbackStarted);
+
+            // Assert
+            playbackIndicationServiceMock.verify((x) => x.setPlayingTrack(playbackQueue.tracks, trackModel), Times.once());
+        });
+
+        it('should initialize selectionWatcher using the tracks in the queue when the playback queue is shown', () => {
+            // Arrange
+            const component: PlaybackQueueComponent = createComponent();
+
+            // Act
+            component.ngOnInit();
+            refreshPlaybackQueueListRequested.next();
+
+            // Assert
+            selectionWatcherMock.verify((x) => x.initialize(playbackQueue.tracks), Times.once());
+        });
+
+        it('should set shouldShowList to true the playback queue is shown', () => {
+            // Arrange
+            const component: PlaybackQueueComponent = createComponent();
+
+            // Act
+            component.ngOnInit();
+            const shouldShowListBefore: boolean = component.shouldShowList;
+            jest.useFakeTimers();
+            refreshPlaybackQueueListRequested.next();
+            jest.runAllTimers();
+            const shouldShowListAfter: boolean = component.shouldShowList;
+
+            // Assert
+            expect(shouldShowListBefore).toBeFalsy();
+            expect(shouldShowListAfter).toBeTruthy();
+        });
+    });
+
+    describe('onTrackContextMenu', () => {
+        it('should open the track context menu', () => {
+            // Arrange
+            const trackModel: TrackModel = new TrackModel(
+                new Track('DummyPath'),
+                dateTimeMock.object,
+                translatorServiceMock.object,
+                settingsMock,
+            );
+            const component: PlaybackQueueComponent = createComponent();
+            const event: any = {};
+
+            // Act
+            component.onTrackContextMenu(event, trackModel);
+
+            // Assert
+            contextMenuOpenerMock.verify((x) => x.open(component.trackContextMenu, event, trackModel), Times.once());
+        });
+    });
+
+    describe('setSelectedTracks', () => {
+        it('should set the selected item on selectionWatcher', () => {
+            // Arrange
+            const component: PlaybackQueueComponent = createComponent();
+            const event: any = {};
+            const trackModel: TrackModel = new TrackModel(
+                new Track('Path 1'),
+                dateTimeMock.object,
+                translatorServiceMock.object,
+                settingsMock,
+            );
+
+            // Act
+            component.setSelectedTracks(event, trackModel);
+
+            // Assert
+            selectionWatcherMock.verify((x) => x.setSelectedItems(event, trackModel), Times.once());
+        });
+    });
+
+    describe('onRemoveFromQueue', () => {
+        it('should remove selected tracks from the queue', () => {
+            // Arrange
+            const trackModel: TrackModel = new TrackModel(
+                new Track('Path 1'),
+                dateTimeMock.object,
+                translatorServiceMock.object,
+                settingsMock,
+            );
+            selectionWatcherMock.setup((x) => x.selectedItems).returns(() => [trackModel]);
+            const component: PlaybackQueueComponent = createComponent();
+
+            // Act
+            component.onRemoveFromQueue();
+
+            // Assert
+            playbackServiceMock.verify((x) => x.removeFromQueue([trackModel]), Times.once());
+        });
+    });
+
+    describe('clearQueue', () => {
+        it('should remove all tracks from the queue', () => {
+            // Arrange
+            const component: PlaybackQueueComponent = createComponent();
+
+            // Act
+            component.clearQueue();
+
+            // Assert
+            playbackServiceMock.verify((x) => x.clearQueue(), Times.once());
+        });
+    });
+
+    describe('filteredTracks', () => {
+        it('should return all queue tracks when searchText is empty', () => {
+            // Arrange
+            const component: PlaybackQueueComponent = createComponent();
+            component.searchText = '';
+
+            // Act
+            const filteredTracks: TrackModel[] = component.filteredTracks;
+
+            // Assert
+            expect(filteredTracks).toEqual(playbackQueue.tracks);
+        });
+
+        it('should return only matching tracks when searchText has a value', () => {
+            // Arrange
+            const matchingTrack: Track = new Track('Path 1');
+            matchingTrack.fileName = 'dummy.mp3';
+            matchingTrack.trackTitle = 'dummy title';
+            matchingTrack.albumTitle = 'dummy album';
+            matchingTrack.albumArtists = ';dummy album artist;';
+            matchingTrack.artists = ';dummy artist;';
+            matchingTrack.year = 1999;
+            matchingTrack.genres = ';dummy genre;';
+
+            const nonMatchingTrack: Track = new Track('Path 2');
+            nonMatchingTrack.fileName = 'other.mp3';
+            nonMatchingTrack.trackTitle = 'other title';
+            nonMatchingTrack.albumTitle = 'other album';
+            nonMatchingTrack.albumArtists = ';other album artist;';
+            nonMatchingTrack.artists = ';other artist;';
+            nonMatchingTrack.year = 2001;
+            nonMatchingTrack.genres = ';other genre;';
+
+            const matchingTrackModel: TrackModel = new TrackModel(
+                matchingTrack,
+                dateTimeMock.object,
+                translatorServiceMock.object,
+                settingsMock,
+            );
+            const nonMatchingTrackModel: TrackModel = new TrackModel(
+                nonMatchingTrack,
+                dateTimeMock.object,
+                translatorServiceMock.object,
+                settingsMock,
+            );
+
+            playbackQueue = new TrackModels();
+            playbackQueue.addTrack(matchingTrackModel);
+            playbackQueue.addTrack(nonMatchingTrackModel);
+            playbackServiceMock.setup((x) => x.playbackQueue).returns(() => playbackQueue);
+
+            const component: PlaybackQueueComponent = createComponent();
+            component.searchText = 'dummy';
+
+            // Act
+            const filteredTracks: TrackModel[] = component.filteredTracks;
+
+            // Assert
+            expect(filteredTracks).toEqual([matchingTrackModel]);
+        });
+    });
+
+    describe('clearSearchText', () => {
+        it('should clear searchText', () => {
+            // Arrange
+            const component: PlaybackQueueComponent = createComponent();
+            component.searchText = 'some search text';
+
+            // Act
+            component.clearSearchText();
+
+            // Assert
+            expect(component.searchText).toEqual('');
+        });
+    });
+
+    describe('dropTrack', () => {
+        it('should reorder queue when searchText is empty', () => {
+            // Arrange
+            playbackQueue = new TrackModels();
+            for (let i = 0; i < 5; i++) {
+                playbackQueue.addTrack(
+                    new TrackModel(new Track(`DummyPath${i}`), dateTimeMock.object, translatorServiceMock.object, settingsMock),
+                );
+            }
+            playbackServiceMock.setup((x) => x.playbackQueue).returns(() => playbackQueue);
+
+            const component: PlaybackQueueComponent = createComponent();
+            const event: CdkDragDrop<TrackModel[]> = {
+                previousIndex: 1,
+                currentIndex: 0,
+                item: { data: playbackQueue.tracks[4] },
+            } as CdkDragDrop<TrackModel[]>;
+
+            // Act
+            component.dropTrack(event);
+
+            // Assert
+            playbackServiceMock.verify((x) => x.reorderQueue(4, 3), Times.once());
+            selectionWatcherMock.verify((x) => x.initialize(playbackQueue.tracks), Times.once());
+        });
+
+        it('should not reorder queue when searchText is not empty', () => {
+            // Arrange
+            const component: PlaybackQueueComponent = createComponent();
+            component.searchText = 'dummy';
+            const event: CdkDragDrop<TrackModel[]> = {
+                previousIndex: 4,
+                currentIndex: 3,
+            } as CdkDragDrop<TrackModel[]>;
+
+            // Act
+            component.dropTrack(event);
+
+            // Assert
+            playbackServiceMock.verify((x) => x.reorderQueue(It.isAny(), It.isAny()), Times.never());
+            selectionWatcherMock.verify((x) => x.initialize(It.isAny()), Times.never());
+        });
+    });
+});

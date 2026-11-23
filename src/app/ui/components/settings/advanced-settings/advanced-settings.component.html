@@ -1,0 +1,27 @@
+<div class="d-flex flex-column p-4">
+    <div class="title">{{ 'welcome-screen' | translate }}</div>
+    <div>
+        <app-toggle-switch [(isChecked)]="settings.showWelcome"> {{ 'show-welcome-screen-on-next-restart' | translate }}</app-toggle-switch>
+    </div>
+    <div class="mt-4">
+        <app-transparent-button (click)="this.showWelcomeScreenAsync()">
+            {{ 'show-welcome-screen-now' | translate }}
+        </app-transparent-button>
+    </div>
+    <mat-divider class="my-4"></mat-divider>
+    <div class="title">{{ 'ratings-backup' | translate }}</div>
+    <div>{{ 'restore-ratings-from-backup-description' | translate }}</div>
+    <div class="mt-4">
+        <app-transparent-button (click)="this.restoreRatingsAsync()">
+            {{ 'restore-ratings-from-backup' | translate }}
+        </app-transparent-button>
+    </div>
+    <mat-divider class="my-4"></mat-divider>
+    <div class="title">{{ 'log-file' | translate }}</div>
+    <div>{{ 'something-wrong-look-in-log-file' | translate }}</div>
+    <div class="mt-4">
+        <app-transparent-button (click)="this.viewLog()">
+            {{ 'view-log' | translate }}
+        </app-transparent-button>
+    </div>
+</div>

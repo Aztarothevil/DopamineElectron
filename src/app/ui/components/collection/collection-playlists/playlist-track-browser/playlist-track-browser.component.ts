@@ -1,0 +1,221 @@
+import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
+import { AfterViewInit, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { MatMenuTrigger } from '@angular/material/menu';
+import { CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
+import { Subscription } from 'rxjs';
+import { Logger } from '../../../../../common/logger';
+import { PlaybackStarted } from '../../../../../services/playback/playback-started';
+import { TrackModel } from '../../../../../services/track/track-model';
+import { TrackModels } from '../../../../../services/track/track-models';
+import { BaseTracksPersister } from '../../base-tracks-persister';
+import { PlaybackService } from '../../../../../services/playback/playback.service';
+import { PlaylistServiceBase } from '../../../../../services/playlist/playlist.service.base';
+import { DialogServiceBase } from '../../../../../services/dialog/dialog.service.base';
+import { TranslatorServiceBase } from '../../../../../services/translator/translator.service.base';
+import { PlaybackIndicationServiceBase } from '../../../../../services/playback-indication/playback-indication.service.base';
+import { DesktopBase } from '../../../../../common/io/desktop.base';
+import { SelectionWatcher } from '../../../selection-watcher';
+import { ContextMenuOpener } from '../../../context-menu-opener';
+import { SettingsBase } from '../../../../../common/settings/settings.base';
+import { ScrollPositionService } from '../../../../../services/scroll-position/scroll-position.service';
+import { SearchServiceBase } from '../../../../../services/search/search.service.base';
+import { BaseVirtualScrollBrowser } from '../../base-virtual-scroll-browser';
+
+@Component({
+    selector: 'app-playlist-track-browser',
+    host: { style: 'display: block' },
+    templateUrl: './playlist-track-browser.component.html',
+    styleUrls: ['./playlist-track-browser.component.scss'],
+    providers: [SelectionWatcher],
+})
+export class PlaylistTrackBrowserComponent extends BaseVirtualScrollBrowser implements OnInit, AfterViewInit, OnDestroy {
+    private _tracks: TrackModels = new TrackModels();
+    private _tracksPersister: BaseTracksPersister;
+    private subscription: Subscription = new Subscription();
+
+    public constructor(
+        public playbackService: PlaybackService,
+        public playlistService: PlaylistServiceBase,
+        public contextMenuOpener: ContextMenuOpener,
+        public selectionWatcher: SelectionWatcher,
+        private playbackIndicationService: PlaybackIndicationServiceBase,
+        private translatorService: TranslatorServiceBase,
+        private dialogService: DialogServiceBase,
+        public settings: SettingsBase,
+        private desktop: DesktopBase,
+        private logger: Logger,
+        scrollPositionService: ScrollPositionService,
+        searchService: SearchServiceBase,
+    ) {
+        super(scrollPositionService, searchService);
+    }
+
+    @ViewChild('playlistTrackContextMenuAnchor', { read: MatMenuTrigger, static: false })
+    public playlistTrackContextMenu: MatMenuTrigger;
+
+    @ViewChild(CdkVirtualScrollViewport)
+    public viewPort: CdkVirtualScrollViewport;
+
+    public orderedTracks: TrackModel[] = [];
+
+    @Input()
+    public canReorder: boolean = true;
+
+    @Input()
+    public canRemoveFromPlaylist: boolean = true;
+
+    @Input()
+    public scrollPositionKey: string = 'playlists-tracks';
+
+    public get trackItemSize(): number {
+        return this.settings.useCompactTrackListView ? 32 : 46;
+    }
+
+    public get tracksPersister(): BaseTracksPersister {
+        return this._tracksPersister;
+    }
+
+    @Input()
+    public set tracksPersister(v: BaseTracksPersister) {
+        this._tracksPersister = v;
+        this.orderTracks();
+    }
+
+    public get tracks(): TrackModels {
+        return this._tracks;
+    }
+
+    @Input()
+    public set tracks(v: TrackModels) {
+        this._tracks = v;
+        this.orderTracks();
+        this.selectionWatcher.initialize(this.orderedTracks, false);
+        this.restoreScrollPosition(this.viewPort, this.scrollPositionKey, this.orderedTracks.length > 0);
+    }
+
+    public ngOnDestroy(): void {
+        this.disposeScrollPosition(this.scrollPositionKey);
+
+        this.subscription.unsubscribe();
+    }
+
+    public ngAfterViewInit(): void {
+        this.initializeScrollPosition(this.viewPort, this.scrollPositionKey);
+        this.restoreScrollPosition(this.viewPort, this.scrollPositionKey, this.orderedTracks.length > 0);
+    }
+
+    public ngOnInit(): void {
+        this.subscription.add(
+            this.playbackService.playbackStarted$.subscribe((playbackStarted: PlaybackStarted) => {
+                this.playbackIndicationService.setPlayingTrack(this.orderedTracks, playbackStarted.currentTrack);
+            }),
+        );
+
+        this.subscription.add(
+            this.playbackService.playbackStopped$.subscribe(() => {
+                this.playbackIndicationService.clearPlayingTrack(this.orderedTracks);
+            }),
+        );
+    }
+
+    public setSelectedTracks(event: MouseEvent, trackToSelect: TrackModel): void {
+        this.selectionWatcher.setSelectedItems(event, trackToSelect);
+    }
+
+    public onPlaylistTrackContextMenu(event: MouseEvent, track: TrackModel): void {
+        this.contextMenuOpener.open(this.playlistTrackContextMenu, event, track);
+    }
+
+    public async onRemoveFromPlaylistAsync(): Promise<void> {
+        if (!this.canRemoveFromPlaylist) {
+            return;
+        }
+
+        const dialogTitle: string = await this.translatorService.getAsync('confirm-remove-from-playlist');
+        const dialogText: string = await this.translatorService.getAsync('confirm-remove-from-playlist-long');
+
+        const userHasConfirmed: boolean = await this.dialogService.showConfirmationDialogAsync(dialogTitle, dialogText);
+
+        if (userHasConfirmed) {
+            try {
+                await this.playlistService.removeTracksFromPlaylistsAsync(this.selectionWatcher.selectedItems as TrackModel[]);
+            } catch (e: unknown) {
+                this.logger.error(
+                    e,
+                    'Could not remove tracks from playlists',
+                    'PlaylistTrackBrowserComponent',
+                    'onRemoveFromPlaylistAsync',
+                );
+
+                const errorText: string = await this.translatorService.getAsync('remove-from-playlist-error');
+                this.dialogService.showErrorDialog(errorText);
+            }
+        }
+    }
+
+    public async onAddToQueueAsync(): Promise<void> {
+        await this.playbackService.addTracksToQueueAsync(this.selectionWatcher.selectedItems as TrackModel[]);
+    }
+
+    public onShowInFolder(): void {
+        const tracks: TrackModel[] = this.selectionWatcher.selectedItems as TrackModel[];
+
+        if (tracks.length > 0) {
+            this.desktop.showFileInDirectory(tracks[0].path);
+        }
+    }
+
+    public scrollToPlayingTrack(): void {
+        const playingTrackIndex: number = this.orderedTracks.findIndex((t) => t.isPlaying);
+
+        if (playingTrackIndex < 0 || this.viewPort == undefined) {
+            return;
+        }
+
+        setTimeout(() => this.viewPort.scrollToIndex(Math.max(playingTrackIndex - 1, 0), 'smooth'));
+    }
+
+    private orderTracks(): void {
+        let orderedTracks: TrackModel[] = [];
+
+        try {
+            orderedTracks = this.tracks.tracks;
+        } catch (e: unknown) {
+            this.logger.error(e, 'Could not order tracks', 'PlaylistTrackBrowserComponent', 'orderTracks');
+        }
+
+        // Playlist virtual scroll uses fixed-size rows; ensure no row renders extra header height.
+        for (const track of orderedTracks) {
+            track.showHeader = false;
+        }
+
+        this.orderedTracks = [...orderedTracks];
+
+        this.playbackIndicationService.setPlayingTrack(this.orderedTracks, this.playbackService.currentTrack);
+    }
+
+    public async dropTrackAsync(event: CdkDragDrop<TrackModel[]>): Promise<void> {
+        if (!this.canReorder) {
+            return;
+        }
+
+        // With CDK virtual scroll, drag event indices are relative to the rendered rows, not the full
+        // list. Derive the real source index from the dragged track and apply the same displacement.
+        const previousIndex: number = this.orderedTracks.indexOf(event.item.data as TrackModel);
+
+        if (previousIndex < 0) {
+            return;
+        }
+
+        const currentIndex: number = previousIndex + (event.currentIndex - event.previousIndex);
+
+        moveItemInArray(this.orderedTracks, previousIndex, currentIndex);
+
+        // HACK: required so that the dragged item does not snap back to its original place
+        // See: https://github.com/angular/components/issues/14873
+        this.orderedTracks = [...this.orderedTracks];
+
+        this.selectionWatcher.initialize(this.orderedTracks, false);
+        await this.playlistService.updatePlaylistOrderAsync(this.orderedTracks);
+    }
+}

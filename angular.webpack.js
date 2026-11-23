@@ -1,0 +1,28 @@
+module.exports = {
+    module: {
+        rules: [{ test: /webp_dec\.wasm$/, type: 'asset/inline' }],
+    },
+    externals: {
+        'better-sqlite3': 'commonjs better-sqlite3',
+        electron: 'commonjs electron',
+        child_process: 'commonjs child_process',
+        ipc: 'commonjs ipc',
+        'ipc-renderer': 'commonjs ipc-renderer',
+        remote: 'commonjs remote',
+        fs: 'commonjs fs',
+        assert: 'commonjs assert',
+        crypto: 'commonjs crypto',
+        http: 'commonjs http',
+        https: 'commonjs https',
+        os: 'commonjs os',
+        path: 'commonjs path',
+        readline: 'commonjs readline',
+        stream: 'commonjs stream',
+        timers: 'commonjs timers',
+        util: 'commonjs util',
+        constants: 'commonjs constants',
+        net: 'commonjs net',
+        querystring: 'commonjs querystring',
+        url: 'commonjs url',
+    },
+};

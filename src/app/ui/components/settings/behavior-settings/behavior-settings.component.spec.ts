@@ -1,0 +1,167 @@
+import { IMock, Mock } from 'typemoq';
+import { BehaviorSettingsComponent } from './behavior-settings.component';
+import { MediaSessionService } from '../../../../services/media-session/media-session.service';
+import { DockService } from '../../../../services/dock/dock.service';
+import { SettingsBase } from '../../../../common/settings/settings.base';
+import { TrayServiceBase } from '../../../../services/tray/tray.service.base';
+import { DialogServiceBase } from '../../../../services/dialog/dialog.service.base';
+import { TranslatorServiceBase } from '../../../../services/translator/translator.service.base';
+import { Logger } from '../../../../common/logger';
+import { AudioOutputDeviceService } from '../../../../services/audio-output-device/audio-output-device.service';
+import { PlaybackService } from '../../../../services/playback/playback.service';
+import { SettingsMock } from '../../../../testing/settings-mock';
+
+describe('BehaviorSettingsComponent', () => {
+    let component: BehaviorSettingsComponent;
+    let trayServiceMock: IMock<TrayServiceBase>;
+    let mediaSessionServiceMock: IMock<MediaSessionService>;
+    let dockServiceMock: IMock<DockService>;
+    let dialogServiceMock: IMock<DialogServiceBase>;
+    let translatorServiceMock: IMock<TranslatorServiceBase>;
+    let settingsMock: IMock<SettingsBase>;
+    let loggerMock: IMock<Logger>;
+    let audioOutputDeviceServiceMock: IMock<AudioOutputDeviceService>;
+    let playbackServiceMock: IMock<PlaybackService>;
+
+    beforeEach(() => {
+        settingsMock = Mock.ofType<SettingsBase>();
+        trayServiceMock = Mock.ofType<TrayServiceBase>();
+        mediaSessionServiceMock = Mock.ofType<MediaSessionService>();
+        dockServiceMock = Mock.ofType<DockService>();
+        dialogServiceMock = Mock.ofType<DialogServiceBase>();
+        translatorServiceMock = Mock.ofType<TranslatorServiceBase>();
+        loggerMock = Mock.ofType<Logger>();
+        audioOutputDeviceServiceMock = Mock.ofType<AudioOutputDeviceService>();
+        playbackServiceMock = Mock.ofType<PlaybackService>();
+        audioOutputDeviceServiceMock.setup((x) => x.getAudioOutputDevicesAsync()).returns(() => Promise.resolve([]));
+
+        component = new BehaviorSettingsComponent(
+            trayServiceMock.object,
+            mediaSessionServiceMock.object,
+            dockServiceMock.object,
+            dialogServiceMock.object,
+            translatorServiceMock.object,
+            settingsMock.object,
+            loggerMock.object,
+            audioOutputDeviceServiceMock.object,
+            playbackServiceMock.object,
+        );
+    });
+
+    describe('artist sort prefixes', () => {
+        beforeEach(() => {
+            component.settings = new SettingsMock();
+            translatorServiceMock.setup((service) => service.getAsync('add-prefix')).returns(() => Promise.resolve('Add prefix'));
+            translatorServiceMock.setup((service) => service.getAsync('remove-prefix')).returns(() => Promise.resolve('Remove prefix'));
+            translatorServiceMock
+                .setup((service) => service.getAsync('confirm-remove-prefix', { prefix: 'The' }))
+                .returns(() => Promise.resolve('Remove The?'));
+        });
+
+        it('should load saved prefixes', () => {
+            component.settings.sortPrefixes = '[The][A]';
+            component.ngOnInit();
+            expect(component.sortPrefixes).toEqual(['The', 'A']);
+        });
+
+        it('should trim and persist an added prefix', async () => {
+            dialogServiceMock
+                .setup((service) => service.showInputDialogAsync('Add prefix', '', '', ['[', ']']))
+                .returns(() => Promise.resolve(' The '));
+            await component.addSortPrefixAsync();
+            expect(component.sortPrefixes).toEqual(['The']);
+            expect(component.settings.sortPrefixes).toEqual('[The]');
+        });
+
+        it.each(['', '   ', ' the '])('should ignore empty or duplicate input %s', async (input) => {
+            component.settings.sortPrefixes = '[The]';
+            component.ngOnInit();
+            dialogServiceMock
+                .setup((service) => service.showInputDialogAsync('Add prefix', '', '', ['[', ']']))
+                .returns(() => Promise.resolve(input));
+            await component.addSortPrefixAsync();
+            expect(component.sortPrefixes).toEqual(['The']);
+            expect(component.settings.sortPrefixes).toEqual('[The]');
+        });
+
+        it('should persist removal after confirmation', async () => {
+            component.settings.sortPrefixes = '[The][A]';
+            component.ngOnInit();
+            dialogServiceMock
+                .setup((service) => service.showConfirmationDialogAsync('Remove prefix', 'Remove The?'))
+                .returns(() => Promise.resolve(true));
+            await component.removeSortPrefixAsync('The');
+            expect(component.sortPrefixes).toEqual(['A']);
+            expect(component.settings.sortPrefixes).toEqual('[A]');
+        });
+
+        it('should leave an empty list when the last prefix is removed', async () => {
+            component.settings.sortPrefixes = '[The]';
+            component.ngOnInit();
+            dialogServiceMock
+                .setup((service) => service.showConfirmationDialogAsync('Remove prefix', 'Remove The?'))
+                .returns(() => Promise.resolve(true));
+            await component.removeSortPrefixAsync('The');
+            expect(component.sortPrefixes).toEqual([]);
+            expect(component.settings.sortPrefixes).toEqual('');
+        });
+
+        it('should preserve prefixes when removal is cancelled', async () => {
+            component.settings.sortPrefixes = '[The]';
+            component.ngOnInit();
+            dialogServiceMock
+                .setup((service) => service.showConfirmationDialogAsync('Remove prefix', 'Remove The?'))
+                .returns(() => Promise.resolve(false));
+            await component.removeSortPrefixAsync('The');
+            expect(component.sortPrefixes).toEqual(['The']);
+            expect(component.settings.sortPrefixes).toEqual('[The]');
+        });
+    });
+
+    describe('constructor', () => {
+        it('should create', () => {
+            // Arrange
+
+            // Act
+
+            // Assert
+            expect(component).toBeDefined();
+        });
+
+        it('should define trayService', () => {
+            // Arrange
+
+            // Act
+
+            // Assert
+            expect(component.trayService).toBeDefined();
+        });
+
+        it('should define mediaSessionService', () => {
+            // Arrange
+
+            // Act
+
+            // Assert
+            expect(component.mediaSessionService).toBeDefined();
+        });
+
+        it('should define dockService', () => {
+            // Arrange
+
+            // Act
+
+            // Assert
+            expect(component.dockService).toBeDefined();
+        });
+
+        it('should define settings', () => {
+            // Arrange
+
+            // Act
+
+            // Assert
+            expect(component.settings).toBeDefined();
+        });
+    });
+});
