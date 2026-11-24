@@ -12,6 +12,17 @@ $tile-size: calc(#{$cover-size} + 4px);
     align-items: center;
     justify-content: center;
     padding: 2px;
+    box-sizing: border-box;
+    border: 2px solid transparent;
+}
+
+.app-album-border.is-playing {
+    border: 2px solid var(--theme-primary-color) !important;
+}
+
+.app-album-border.is-playing .app-album__information {
+    background: #2f2f2f;
+    border-radius: 0 0 4px 4px;
 }
 
 .app-album-border:hover {

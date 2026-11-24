@@ -108,6 +108,9 @@ export class TrackBrowserComponent extends TrackBrowserBase implements OnInit, A
     @Input()
     public showOrdering: boolean = true;
 
+    @Input()
+    public canShowHeader: boolean = true;
+
     public get tracks(): TrackModels {
         return this._tracks;
     }
@@ -134,6 +137,7 @@ export class TrackBrowserComponent extends TrackBrowserBase implements OnInit, A
         this.subscription.add(
             this.playbackService.playbackStarted$.subscribe((playbackStarted: PlaybackStarted) => {
                 this.playbackIndicationService.setPlayingTrack(this.orderedTracks, playbackStarted.currentTrack);
+                this.selectionWatcher.initialize(this.orderedTracks, false);
                 this.trackService.scrollToPlayingTrack(this.orderedTracks, this.viewPort);
             }),
         );
@@ -221,6 +225,18 @@ export class TrackBrowserComponent extends TrackBrowserBase implements OnInit, A
                     break;
                 case TrackOrder.byDateCreatedDescending:
                     orderedTracks = this.trackSorter.sortByDateCreatedDescending(this.tracks.tracks);
+                    this.hideAllHeaders(orderedTracks);
+                    break;
+                case TrackOrder.byDateModifiedAscending:
+                    orderedTracks = this.trackSorter.sortByDateModifiedAscending(this.tracks.tracks);
+                    this.hideAllHeaders(orderedTracks);
+                    break;
+                case TrackOrder.byDateModifiedDescending:
+                    orderedTracks = this.trackSorter.sortByDateModifiedDescending(this.tracks.tracks);
+                    this.hideAllHeaders(orderedTracks);
+                    break;
+                case TrackOrder.byRating:
+                    orderedTracks = this.trackSorter.sortByRatingDescending(this.tracks.tracks);
                     this.hideAllHeaders(orderedTracks);
                     break;
                 case TrackOrder.byFileNameAscending:

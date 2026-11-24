@@ -197,8 +197,40 @@ export class TrackModel implements ISelectable {
         return this.track.fileSize ?? 0;
     }
 
+    public get bitRate(): number {
+        return this.track.bitRate ?? 0;
+    }
+
+    public get sampleRate(): number {
+        return this.track.sampleRate ?? 0;
+    }
+
+    public get mimeType(): string {
+        return this.track.mimeType ?? '';
+    }
+
+    public get audioType(): string {
+        if (this.mimeType) {
+            const parts = this.mimeType.split('/');
+            if (parts.length > 1) {
+                return parts[1].toUpperCase();
+            }
+        }
+        if (this.fileName) {
+            const lastDot = this.fileName.lastIndexOf('.');
+            if (lastDot > 0) {
+                return this.fileName.substring(lastDot + 1).toUpperCase();
+            }
+        }
+        return '';
+    }
+
     public get dateCreated(): number {
         return this.track.dateFileCreated ?? 0;
+    }
+
+    public get dateModified(): number {
+        return this.track.dateFileModified ?? 0;
     }
 
     public get playCount(): number {

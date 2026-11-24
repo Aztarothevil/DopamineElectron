@@ -11,6 +11,7 @@ export abstract class BaseAlbumsPersister {
     private selectedAlbumKeys: string[] = [];
     private selectedAlbumOrder: AlbumOrder;
     private selectedAlbumsChanged: Subject<string[]> = new Subject();
+    private selectedAlbumOrderChanged: Subject<AlbumOrder> = new Subject();
 
     public constructor(
         public settings: SettingsBase,
@@ -20,6 +21,7 @@ export abstract class BaseAlbumsPersister {
     }
 
     public selectedAlbumsChanged$: Observable<string[]> = this.selectedAlbumsChanged.asObservable();
+    public selectedAlbumOrderChanged$: Observable<AlbumOrder> = this.selectedAlbumOrderChanged.asObservable();
 
     public abstract getSelectedAlbumFromSettings(): string;
     public abstract saveSelectedAlbumToSettings(selectedAlbumKey: string): void;
@@ -77,6 +79,7 @@ export abstract class BaseAlbumsPersister {
         try {
             this.selectedAlbumOrder = selectedAlbumOrder;
             this.saveSelectedAlbumOrderToSettings(AlbumOrder[selectedAlbumOrder]);
+            this.selectedAlbumOrderChanged.next(this.selectedAlbumOrder);
         } catch (e: unknown) {
             this.logger.error(e, 'Could not set selected album order', 'BaseAlbumsPersister', 'setSelectedAlbumOrder');
         }

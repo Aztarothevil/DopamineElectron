@@ -45,10 +45,13 @@ export class PlaybackIndicationService implements PlaybackIndicationServiceBase 
             return;
         }
 
+        const normalizedPlayingPath = (playingTrack.path || '').replace(/\\/g, '/').toLowerCase();
+
         for (const track of tracks) {
             track.isPlaying = false;
 
-            if (track.path === playingTrack.path) {
+            const normalizedTrackPath = (track.path || '').replace(/\\/g, '/').toLowerCase();
+            if (normalizedTrackPath === normalizedPlayingPath) {
                 track.isPlaying = true;
             }
         }

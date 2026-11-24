@@ -55,6 +55,8 @@ describe('validate i18n', () => {
         'by-artist-descending',
         'by-date-added',
         'by-date-created',
+        'by-date-modified-ascending',
+        'by-date-modified-descending',
         'by-genre-ascending',
         'by-genre-descending',
         'by-last-played',

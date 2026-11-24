@@ -64,7 +64,10 @@ import { AlbumRowsGetter } from './ui/components/collection/album-browser/album-
 import { AlbumComponent } from './ui/components/collection/album-browser/album/album.component';
 import { AlbumsAlbumsPersister } from './ui/components/collection/collection-albums/albums-albums-persister';
 import { AlbumsTracksPersister } from './ui/components/collection/collection-albums/albums-tracks-persister';
+import { MusicTracksPersister } from './ui/components/collection/collection-music/music-tracks-persister';
 import { CollectionAlbumsComponent } from './ui/components/collection/collection-albums/collection-albums.component';
+import { CollectionMusicComponent } from './ui/components/collection/collection-music/collection-music.component';
+import { CollectionNowPlayingPanelComponent } from './ui/components/collection/collection-now-playing-panel/collection-now-playing-panel.component';
 import { ArtistBrowserComponent } from './ui/components/collection/collection-artists/artist-browser/artist-browser.component';
 import { ArtistComponent } from './ui/components/collection/collection-artists/artist/artist.component';
 import { ArtistsAlbumsPersister } from './ui/components/collection/collection-artists/artists-albums-persister';
@@ -425,6 +428,8 @@ export function settingsInitializerFactory(settings: SettingsBase) {
         CollectionPlaylistsComponent,
         CollectionArtistsComponent,
         CollectionAlbumsComponent,
+        CollectionMusicComponent,
+        CollectionNowPlayingPanelComponent,
         CollectionTracksComponent,
         CollectionGenresComponent,
         PlaybackControlsComponent,
@@ -572,6 +577,7 @@ export function settingsInitializerFactory(settings: SettingsBase) {
         GenresTracksPersister,
         AlbumsAlbumsPersister,
         AlbumsTracksPersister,
+        MusicTracksPersister,
         FoldersPersister,
         PlaylistFoldersPersister,
         FolderTracksPersister,

@@ -27,7 +27,7 @@
         <div *cdkVirtualFor="let track of this.orderedTracks" (mousedown)="setSelectedTracks($event, track)">
             <app-track
                 [track]="track"
-                [canShowHeader]="true"
+                [canShowHeader]="this.canShowHeader"
                 (dblclick)="playbackService.enqueueAndPlayTracksStartingFromGivenTrackAsync(this.orderedTracks, track)"
                 (contextmenu)="onTrackContextMenu($event, track)"
             ></app-track>

@@ -15,6 +15,7 @@ import { AlbumData } from '../../../../data/entities/album-data';
 import { AlbumModel } from '../../../../services/album/album-model';
 import { ApplicationPaths } from '../../../../common/application/application-paths';
 import { PlaybackService } from '../../../../services/playback/playback.service';
+import { PlaybackStarted } from '../../../../services/playback/playback-started';
 import { SettingsMock } from '../../../../testing/settings-mock';
 import { TrackServiceBase } from '../../../../services/track/track.service.base';
 import { TrackModels } from '../../../../services/track/track-models';
@@ -65,6 +66,8 @@ describe('AlbumBrowserComponent', () => {
     beforeEach(() => {
         trackServiceMock = Mock.ofType<TrackServiceBase>();
         playbackServiceMock = Mock.ofType<PlaybackService>();
+        playbackServiceMock.setup((x) => x.playbackStarted$).returns(() => new Subject<PlaybackStarted>().asObservable());
+        playbackServiceMock.setup((x) => x.playbackStopped$).returns(() => new Subject<void>().asObservable());
         dialogServiceMock = Mock.ofType<DialogServiceBase>();
         applicationServiceMock = Mock.ofType<ApplicationServiceBase>();
         albumRowsGetterMock = Mock.ofType<AlbumRowsGetter>();

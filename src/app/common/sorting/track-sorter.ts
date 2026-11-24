@@ -88,15 +88,78 @@ export class TrackSorter {
         return sorted;
     }
 
+    public sortByDateModifiedAscending(tracks: TrackModel[]): TrackModel[] {
+        const timer = new Timer();
+        timer.start();
+
+        const sorted = sort(tracks).by([{ asc: (t) => t.dateModified }, { asc: (t) => t.number }]);
+
+        timer.stop();
+
+        this.logger.info(
+            `Finished sorting tracks by date modified ascending. Time required: ${timer.elapsedMilliseconds} ms`,
+            'TrackSorter',
+            'sortByDateModifiedAscending',
+        );
+
+        return sorted;
+    }
+
+    public sortByDateModifiedDescending(tracks: TrackModel[]): TrackModel[] {
+        const timer = new Timer();
+        timer.start();
+
+        const sorted = sort(tracks).by([{ desc: (t) => t.dateModified }, { desc: (t) => t.number }]);
+
+        timer.stop();
+
+        this.logger.info(
+            `Finished sorting tracks by date modified descending. Time required: ${timer.elapsedMilliseconds} ms`,
+            'TrackSorter',
+            'sortByDateModifiedDescending',
+        );
+
+        return sorted;
+    }
+
+    public sortByRatingDescending(tracks: TrackModel[]): TrackModel[] {
+        const timer = new Timer();
+        timer.start();
+
+        const sorted = sort(tracks).by([
+            { desc: (t) => t.rating },
+            {
+                asc: (t) => t.sortableTitle,
+                comparer: new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare,
+            },
+        ]);
+
+        timer.stop();
+
+        this.logger.info(
+            `Finished sorting tracks by rating descending. Time required: ${timer.elapsedMilliseconds} ms`,
+            'TrackSorter',
+            'sortByRatingDescending',
+        );
+
+        return sorted;
+    }
+
     public sortByAlbum(tracks: TrackModel[]): TrackModel[] {
         const timer = new Timer();
         timer.start();
 
         const sorted: TrackModel[] = sort(tracks).by([
             {
-                asc: (t) => t.sortableAlbumProperties,
+                asc: (t) => t.sortableAlbumArtists,
                 comparer: new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare,
             },
+            {
+                asc: (t) => t.sortableAlbumTitle,
+                comparer: new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare,
+            },
+            { asc: (t) => t.discNumber },
+            { asc: (t) => t.number },
         ]);
 
         timer.stop();

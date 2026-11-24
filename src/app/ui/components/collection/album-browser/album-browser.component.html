@@ -72,7 +72,7 @@
                     [isSelected]="album.isSelected"
                     [showYear]="isSortedByYear && this.useCompactYearView"
                     (mousedown)="setSelectedAlbums($event, album)"
-                    (dblclick)="this.playbackService.enqueueAndPlayAlbumAsync(album)"
+                    (dblclick)="this.onAlbumDoubleClickAsync(album)"
                     (contextmenu)="onAlbumContextMenu($event, album)"
                 ></app-album>
             </div>
@@ -102,6 +102,9 @@
         <mat-divider></mat-divider>
         <button mat-menu-item (click)="onEditAsync(album)">
             <span>{{ 'edit' | translate }}</span>
+        </button>
+        <button mat-menu-item (click)="onDeleteAlbumAsync(album)">
+            <span>{{ 'delete' | translate }}</span>
         </button>
     </ng-template>
 </mat-menu>

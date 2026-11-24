@@ -14,7 +14,10 @@
     </div>
     <div
         class="app-track__body px-1"
-        [ngClass]="{ 'selected-item-background-important': track.isSelected, compact: this.settings.useCompactTrackListView }"
+        [ngClass]="{
+            'selected-item-background-important': track.isSelected,
+            compact: this.settings.useCompactTrackListView
+        }"
         matRipple
         [matRippleTrigger]="trigger"
         #trigger

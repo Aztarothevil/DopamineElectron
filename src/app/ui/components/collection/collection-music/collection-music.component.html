@@ -1,0 +1,71 @@
+<div class="collection-viewport collection-music-viewport">
+    <as-split gutterSize="4" unit="percent" direction="horizontal" (dragEnd)="splitDragEnd($event)">
+        <!-- Columna 1 (Extrema Izquierda): Selector de Carpetas/Índice -->
+        <as-split-area [size]="folderPaneSize" minSize="8" maxSize="20">
+            <div class="folder-pane fill">
+                <div class="folder-pane-header d-flex flex-row align-items-center justify-content-between p-2 pointer"
+                     (click)="selectAllFolders()"
+                     [ngClass]="{ 'active-all-folders': selectedFolderItem === undefined }">
+                    <div class="d-flex flex-row align-items-center">
+                        <span class="folder-count accent-color mr-2">{{ folderItems.length }}</span>
+                        <span class="folder-title secondary-text">{{ 'all-folders' | translate }}</span>
+                    </div>
+                    <i
+                        class="las la-random secondary-text pointer font-16px"
+                        matTooltip="{{ 'shuffle-all' | translate }}"
+                        (click)="$event.stopPropagation(); shuffleAllAsync()"
+                    ></i>
+                </div>
+                <div class="folder-list fill">
+                    <div *ngFor="let group of folderGroups" class="folder-group mb-2">
+                        <div class="folder-letter-badge mb-1">
+                            {{ group.letter }}
+                        </div>
+                        <div class="folder-group-items">
+                            <div
+                                *ngFor="let item of group.folders"
+                                class="folder-item pointer ellipsis"
+                                [ngClass]="{ 'selected-folder-item': item === selectedFolderItem }"
+                                (click)="selectFolderItem(item)"
+                                [matTooltip]="item.path"
+                            >
+                                {{ item.name }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </as-split-area>
+
+        <!-- Columna 2: Portada + Track Info + Letras Sincronizadas -->
+        <as-split-area [size]="nowPlayingPaneSize" minSize="18" maxSize="35">
+            <app-collection-now-playing-panel class="fill"></app-collection-now-playing-panel>
+        </as-split-area>
+
+        <!-- Columna 3 (Centro): Cuadrícula de Álbumes -->
+        <as-split-area [size]="albumsPaneSize" minSize="20" maxSize="60">
+            <app-album-browser
+                class="p-2 fill"
+                [albums]="this.albums | albumsFilter: this.searchService.delayedSearchText"
+                [(albumsPersister)]="this.albumsPersister"
+                [songsQueueMode]="true"
+                [contextTracks]="this.centerTracks.tracks"
+                scrollPositionKey="music-albums"
+            ></app-album-browser>
+        </as-split-area>
+
+        <!-- Columna 4 (Derecha): Lista de canciones con estrellas y duración -->
+        <as-split-area [size]="tracksPaneSize" minSize="15" maxSize="50">
+            <div class="right-side-pane fill">
+                <app-track-browser
+                    class="p-2 fill"
+                    [tracks]="this.tracks | tracksFilter: this.searchService.delayedSearchText"
+                    [(tracksPersister)]="this.tracksPersister"
+                    [trackOrders]="this.trackOrders"
+                    [canShowHeader]="false"
+                    scrollPositionKey="music-tracks"
+                ></app-track-browser>
+            </div>
+        </as-split-area>
+    </as-split>
+</div>

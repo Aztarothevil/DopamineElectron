@@ -14,6 +14,7 @@ export class AlbumModel implements ISelectable {
     ) {}
 
     public isSelected: boolean = false;
+    public isPlaying: boolean = false;
     public showYear: boolean = false;
     public yearHeader: string = '';
 

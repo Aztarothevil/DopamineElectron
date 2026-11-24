@@ -82,7 +82,7 @@ export class AlbumRowsGetter {
 
         return albumRows;
     }
-    private getSortedAlbums(unsortedAlbums: AlbumModel[], albumOrder: AlbumOrder): AlbumModel[] {
+    public getSortedAlbums(unsortedAlbums: AlbumModel[], albumOrder: AlbumOrder): AlbumModel[] {
         let sortedAlbums: AlbumModel[] = [];
 
         switch (albumOrder) {

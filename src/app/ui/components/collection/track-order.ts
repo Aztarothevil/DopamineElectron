@@ -8,6 +8,8 @@ export enum TrackOrder {
     none = 7,
     byFileNameAscending = 8,
     byFileNameDescending = 9,
+    byDateModifiedAscending = 10,
+    byDateModifiedDescending = 11,
 }
 
 export function trackOrderKey(trackOrder: TrackOrder): string {
@@ -24,6 +26,10 @@ export function trackOrderKey(trackOrder: TrackOrder): string {
             return 'oldest-first';
         case TrackOrder.byDateCreatedDescending:
             return 'newest-first';
+        case TrackOrder.byDateModifiedAscending:
+            return 'by-date-modified-ascending';
+        case TrackOrder.byDateModifiedDescending:
+            return 'by-date-modified-descending';
         case TrackOrder.byFileNameAscending:
             return 'by-file-name-ascending';
         case TrackOrder.byFileNameDescending:

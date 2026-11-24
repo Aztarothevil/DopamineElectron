@@ -16,6 +16,7 @@ export class CollectionNavigationService {
 
     public hasVisiblePages(): boolean {
         return (
+            true ||
             this.settings.showArtistsPage ||
             this.settings.showGenresPage ||
             this.settings.showAlbumsPage ||
@@ -30,37 +31,7 @@ export class CollectionNavigationService {
             return;
         }
 
-        if (this.settings.showArtistsPage) {
-            this.settings.selectedCollectionPage = 0;
-            return;
-        }
-
-        if (this.settings.showGenresPage) {
-            this.settings.selectedCollectionPage = 1;
-            return;
-        }
-
-        if (this.settings.showAlbumsPage) {
-            this.settings.selectedCollectionPage = 2;
-            return;
-        }
-
-        if (this.settings.showTracksPage) {
-            this.settings.selectedCollectionPage = 3;
-            return;
-        }
-
-        if (this.settings.showPlaylistsPage) {
-            this.settings.selectedCollectionPage = 4;
-            return;
-        }
-
-        if (this.settings.showFoldersPage) {
-            this.settings.selectedCollectionPage = 5;
-            return;
-        }
-
-        this.settings.selectedCollectionPage = 0;
+        this.settings.selectedCollectionPage = 6;
     }
 
     private isPageShown(page: number): boolean {
@@ -77,6 +48,8 @@ export class CollectionNavigationService {
                 return this.settings.showPlaylistsPage;
             case 5:
                 return this.settings.showFoldersPage;
+            case 6:
+                return true;
             default:
                 return false;
         }

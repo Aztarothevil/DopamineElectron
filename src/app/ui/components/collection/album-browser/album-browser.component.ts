@@ -17,13 +17,17 @@ import { ContextMenuOpener } from '../../context-menu-opener';
 import { Timer } from '../../../../common/scheduling/timer';
 import { Subject } from 'rxjs';
 import { PlaybackService } from '../../../../services/playback/playback.service';
+import { PlaybackStarted } from '../../../../services/playback/playback-started';
 import { SettingsBase } from '../../../../common/settings/settings.base';
+import { TrackModel } from '../../../../services/track/track-model';
 import { TrackModels } from '../../../../services/track/track-models';
 import { TrackServiceBase } from '../../../../services/track/track.service.base';
 import { DialogServiceBase } from '../../../../services/dialog/dialog.service.base';
 import { ScrollPositionService } from '../../../../services/scroll-position/scroll-position.service';
 import { SearchServiceBase } from '../../../../services/search/search.service.base';
 import { BaseVirtualScrollBrowser } from '../base-virtual-scroll-browser';
+import { CollectionServiceBase } from '../../../../services/collection/collection.service.base';
+import { TranslatorServiceBase } from '../../../../services/translator/translator.service.base';
 
 @Component({
     selector: 'app-album-browser',
@@ -52,6 +56,8 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
         private logger: Logger,
         scrollPositionService: ScrollPositionService,
         searchService: SearchServiceBase,
+        private collectionService?: CollectionServiceBase,
+        private translatorService?: TranslatorServiceBase,
     ) {
         super(scrollPositionService, searchService);
 
@@ -141,6 +147,35 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
     public ngOnInit(): void {
         this.useCompactYearView = this.settings.useCompactYearView;
         this.albumCoverSize = this.settings.albumCoverSize;
+
+        this.updatePlayingAlbum(this.playbackService?.currentTrack);
+
+        if (this.playbackService?.playbackStarted$) {
+            this.playbackService.playbackStarted$
+                .pipe(takeUntil(this.destroy$))
+                .subscribe((playbackStarted: PlaybackStarted) => {
+                    this.updatePlayingAlbum(playbackStarted.currentTrack);
+                });
+        }
+
+        if (this.playbackService?.playbackStopped$) {
+            this.playbackService.playbackStopped$
+                .pipe(takeUntil(this.destroy$))
+                .subscribe(() => {
+                    this.updatePlayingAlbum(undefined);
+                });
+        }
+    }
+
+    private updatePlayingAlbum(currentTrack: TrackModel | undefined): void {
+        const currentAlbumKey = currentTrack?.albumKey;
+        const allAlbums = (this.albumRows && this.albumRows.length > 0)
+            ? this.albumRows.flatMap((row) => row.albums)
+            : this.albums;
+
+        for (const album of allAlbums) {
+            album.isPlaying = currentAlbumKey != undefined && currentAlbumKey.length > 0 && album.albumKey === currentAlbumKey;
+        }
     }
 
     public ngAfterViewInit(): void {
@@ -224,6 +259,7 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
             );
             this.selectionWatcher.setDisplayedItems((this.albumRows ?? []).flatMap((row) => row.albums));
             this.applySelectedAlbums();
+            this.updatePlayingAlbum(this.playbackService.currentTrack);
             this.restoreScrollPosition(this.viewPort, this.scrollPositionKey, this.albumRows.length > 0);
 
             timer.stop();
@@ -262,6 +298,56 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
         await this.playbackService.addAlbumToQueueAsync(album);
     }
 
+    @Input()
+    public songsQueueMode: boolean = false;
+
+    @Input()
+    public contextTracks: TrackModel[] = [];
+
+    public async onAlbumDoubleClickAsync(album: AlbumModel): Promise<void> {
+        if (this.songsQueueMode && this.contextTracks && this.contextTracks.length > 0) {
+            // Estilo WPF CollectionMusic: Ordenar las pistas según el orden exacto de los álbumes en el panel central
+            let tracksToEnqueue: TrackModel[] = this.contextTracks;
+            const displayedAlbums = (this.albumRows ?? []).flatMap((row) => row.albums);
+            if (displayedAlbums.length > 0) {
+                const tracksByAlbumKey = new Map<string, TrackModel[]>();
+                for (const t of this.contextTracks) {
+                    if (!tracksByAlbumKey.has(t.albumKey)) {
+                        tracksByAlbumKey.set(t.albumKey, []);
+                    }
+                    tracksByAlbumKey.get(t.albumKey)!.push(t);
+                }
+
+                // Asegurar que dentro de cada álbum las canciones estén ordenadas por discNumber y trackNumber
+                for (const [_, albumTracks] of tracksByAlbumKey) {
+                    albumTracks.sort((a, b) => {
+                        if (a.discNumber !== b.discNumber) {
+                            return a.discNumber - b.discNumber;
+                        }
+                        return a.number - b.number;
+                    });
+                }
+
+                const ordered: TrackModel[] = [];
+                for (const alb of displayedAlbums) {
+                    const albTracks = tracksByAlbumKey.get(alb.albumKey);
+                    if (albTracks) {
+                        ordered.push(...albTracks);
+                    }
+                }
+
+                if (ordered.length > 0) {
+                    tracksToEnqueue = ordered;
+                }
+            }
+
+            // Buscar la primera pista de este álbum
+            const albumTrack = tracksToEnqueue.find((t) => t.albumKey === album.albumKey) || tracksToEnqueue[0];
+            await this.playbackService.enqueueAndPlayTracksStartingFromGivenTrackAsync(tracksToEnqueue, albumTrack);
+        } else {
+            await this.playbackService.enqueueAndPlayAlbumAsync(album);
+        }
+    }
     public async onShuffleAndPlayAsync(album: AlbumModel): Promise<void> {
         if (album == undefined) {
             return;
@@ -276,6 +362,35 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
         const albumsToEdit: AlbumModel[] = selectedAlbums.length > 0 ? selectedAlbums : [album];
 
         await this.dialogService.showEditAlbumsAsync(albumsToEdit);
+    }
+
+    public async onDeleteAlbumAsync(album: AlbumModel): Promise<void> {
+        if (!this.collectionService || !this.translatorService) {
+            return;
+        }
+
+        const selectedAlbums: AlbumModel[] = this.selectionWatcher.selectedItems as AlbumModel[];
+        const albumsToDelete: AlbumModel[] = selectedAlbums.length > 0 ? selectedAlbums : [album];
+
+        let dialogTitle: string = await this.translatorService.getAsync('delete-songs');
+        let dialogText: string = await this.translatorService.getAsync('confirm-delete-songs');
+
+        const userHasConfirmed: boolean = await this.dialogService.showConfirmationDialogAsync(dialogTitle, dialogText);
+
+        if (userHasConfirmed) {
+            const albumKeys = albumsToDelete.map((a) => a.albumKey);
+            const tracks: TrackModels = this.trackService.getTracksForAlbums(albumKeys);
+
+            try {
+                if (!(await this.collectionService.deleteTracksAsync(tracks.tracks))) {
+                    throw new Error('deleteTracksAsync returned false');
+                }
+            } catch (e: unknown) {
+                this.logger.error(e, 'Could not delete album tracks', 'AlbumBrowserComponent', 'onDeleteAlbumAsync');
+                const errorText: string = await this.translatorService.getAsync('delete-songs-error');
+                this.dialogService.showErrorDialog(errorText);
+            }
+        }
     }
 
     public async shuffleAllAsync(): Promise<void> {
