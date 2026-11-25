@@ -9,8 +9,8 @@
         <div
             class="app-album-border"
             [ngClass]="{
-                'selected-item-background-important': this.isSelected,
                 'is-playing': this.album.isPlaying,
+                'is-selected': this.isSelected,
                 'app-album-rounded': !this.settings.showSquareImages
             }"
             matRipple

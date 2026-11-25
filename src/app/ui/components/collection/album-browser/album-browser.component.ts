@@ -207,6 +207,10 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
     }
 
     public setSelectedAlbums(event: MouseEvent, albumToSelect: AlbumModel): void {
+        if (this.songsQueueMode) {
+            return;
+        }
+
         this.selectionWatcher.setSelectedItems(event, albumToSelect);
         this.albumsPersister.setSelectedAlbums(this.selectionWatcher.selectedItems as AlbumModel[]);
     }
@@ -234,6 +238,13 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
     };
 
     private applySelectedAlbums(): void {
+        if (this.songsQueueMode) {
+            for (const album of this.albums) {
+                album.isSelected = false;
+            }
+            return;
+        }
+
         const selectedAlbums: AlbumModel[] = this.albumsPersister.getSelectedAlbums(this.albums);
 
         if (selectedAlbums == undefined) {
