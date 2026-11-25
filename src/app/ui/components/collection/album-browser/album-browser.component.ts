@@ -315,6 +315,16 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
     @Input()
     public contextTracks: TrackModel[] = [];
 
+    @Input()
+    public totalTracksCount: number | undefined;
+
+    public get displayedCount(): number {
+        if (this.songsQueueMode && this.totalTracksCount !== undefined) {
+            return this.totalTracksCount;
+        }
+        return this.albums.length;
+    }
+
     public async onAlbumDoubleClickAsync(album: AlbumModel): Promise<void> {
         if (this.songsQueueMode && this.contextTracks && this.contextTracks.length > 0) {
             // Estilo WPF CollectionMusic: Ordenar las pistas según el orden exacto de los álbumes en el panel central

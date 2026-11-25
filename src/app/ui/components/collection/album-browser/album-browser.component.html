@@ -1,9 +1,15 @@
 <div class="h-100 w-100 d-flex flex-column" #albumBrowserElement>
     <div class="h-24px align-items-center justify-content-between d-flex flex-row m-1">
         <div class="d-flex flex-row align-items-center">
-            <div class="mr-2 accent-color">{{ this.albums.length }}</div>
-            <div *ngIf="this.albums.length === 1">{{ 'album' | translate }}</div>
-            <div *ngIf="this.albums.length !== 1">{{ 'albums' | translate }}</div>
+            <div class="mr-2 accent-color">{{ this.displayedCount }}</div>
+            <ng-container *ngIf="!this.songsQueueMode">
+                <div *ngIf="this.displayedCount === 1">{{ 'album' | translate }}</div>
+                <div *ngIf="this.displayedCount !== 1">{{ 'albums' | translate }}</div>
+            </ng-container>
+            <ng-container *ngIf="this.songsQueueMode">
+                <div *ngIf="this.displayedCount === 1">{{ 'track' | translate }}</div>
+                <div *ngIf="this.displayedCount !== 1">{{ 'tracks' | translate }}</div>
+            </ng-container>
             <i
                 class="las la-random secondary-text font-16px pointer ml-2"
                 matTooltip="{{ 'shuffle-all' | translate }}"
