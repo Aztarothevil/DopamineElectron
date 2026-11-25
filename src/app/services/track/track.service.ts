@@ -230,14 +230,29 @@ export class TrackService implements TrackServiceBase {
         this.trackRepository.updateSkipCount(track.id, track.skipCount);
     }
 
-    public scrollToPlayingTrack(tracks: TrackModel[], viewPort: CdkVirtualScrollViewport): void {
+    public scrollToPlayingTrack(tracks: TrackModel[], viewPort: CdkVirtualScrollViewport, scrollOnlyIfNotInView: boolean = true): void {
         if (!this.settings.jumpToPlayingSong) {
             return;
         }
 
         const playingIndex = tracks.findIndex((t) => t.isPlaying);
-        if (playingIndex > -1) {
-            setTimeout(() => viewPort.scrollToIndex(playingIndex - 1, 'smooth')); // Scroll to 1 track higher than the current one, giving some breathing room.
+        if (playingIndex > -1 && viewPort != undefined) {
+            setTimeout(() => {
+                if (scrollOnlyIfNotInView) {
+                    const itemSize = this.settings.useCompactTrackListView ? 32 : 46;
+                    const viewportSize = viewPort.getViewportSize();
+                    const scrollOffset = viewPort.measureScrollOffset('top');
+                    const trackOffset = playingIndex * itemSize;
+
+                    // If the track is completely within the visible viewport bounds, do not scroll
+                    const isVisible = trackOffset >= scrollOffset && (trackOffset + itemSize) <= (scrollOffset + viewportSize);
+                    if (isVisible) {
+                        return;
+                    }
+                }
+
+                viewPort.scrollToIndex(Math.max(playingIndex - 1, 0), 'smooth');
+            });
         }
     }
 }

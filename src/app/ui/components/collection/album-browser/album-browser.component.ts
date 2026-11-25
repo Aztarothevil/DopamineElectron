@@ -155,6 +155,7 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
                 .pipe(takeUntil(this.destroy$))
                 .subscribe((playbackStarted: PlaybackStarted) => {
                     this.updatePlayingAlbum(playbackStarted.currentTrack);
+                    this.scrollToPlayingAlbum(true);
                 });
         }
 
@@ -175,6 +176,32 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
 
         for (const album of allAlbums) {
             album.isPlaying = currentAlbumKey != undefined && currentAlbumKey.length > 0 && album.albumKey === currentAlbumKey;
+        }
+    }
+
+    public scrollToPlayingAlbum(scrollOnlyIfNotInView: boolean = true): void {
+        if (!this.settings.jumpToPlayingSong) {
+            return;
+        }
+
+        const playingRowIndex = (this.albumRows ?? []).findIndex((row) => row.albums.some((a) => a.isPlaying));
+        if (playingRowIndex > -1 && this.viewPort != undefined) {
+            setTimeout(() => {
+                if (scrollOnlyIfNotInView) {
+                    const rowHeight = this.albumRowHeight;
+                    const viewportSize = this.viewPort.getViewportSize();
+                    const scrollOffset = this.viewPort.measureScrollOffset('top');
+                    const itemOffset = playingRowIndex * rowHeight;
+
+                    // Verificar si la fila del álbum ya está visible dentro de la ventana de scroll
+                    const isVisible = itemOffset >= scrollOffset && (itemOffset + rowHeight) <= (scrollOffset + viewportSize);
+                    if (isVisible) {
+                        return;
+                    }
+                }
+
+                this.viewPort.scrollToIndex(Math.max(playingRowIndex - 1, 0), 'smooth');
+            });
         }
     }
 

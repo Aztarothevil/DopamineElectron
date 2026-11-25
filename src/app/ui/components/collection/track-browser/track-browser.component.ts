@@ -187,14 +187,28 @@ export class TrackBrowserComponent extends TrackBrowserBase implements OnInit, A
         this.selectionWatcher.setSelectedItems(event, trackToSelect);
     }
 
-    public scrollToPlayingTrack(): void {
+    public scrollToPlayingTrack(scrollOnlyIfNotInView: boolean = false): void {
         const playingTrackIndex: number = this.orderedTracks.findIndex((t) => t.isPlaying);
 
         if (playingTrackIndex < 0 || this.viewPort == undefined) {
             return;
         }
 
-        setTimeout(() => this.viewPort.scrollToIndex(Math.max(playingTrackIndex - 1, 0), 'smooth'));
+        setTimeout(() => {
+            if (scrollOnlyIfNotInView) {
+                const itemSize = this.trackItemSize;
+                const viewportSize = this.viewPort.getViewportSize();
+                const scrollOffset = this.viewPort.measureScrollOffset('top');
+                const trackOffset = playingTrackIndex * itemSize;
+
+                const isVisible = trackOffset >= scrollOffset && (trackOffset + itemSize) <= (scrollOffset + viewportSize);
+                if (isVisible) {
+                    return;
+                }
+            }
+
+            this.viewPort.scrollToIndex(Math.max(playingTrackIndex - 1, 0), 'smooth');
+        });
     }
 
     public applyTrackOrder = (trackOrder: TrackOrder): void => {

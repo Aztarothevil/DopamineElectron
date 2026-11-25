@@ -19,6 +19,12 @@
         </div>
         <div class="d-flex flex-row align-items-center">
             <app-icon-button
+                class="mr-2"
+                icon="las la-crosshairs"
+                matTooltip="{{ 'jump-to-playing-song' | translate }}"
+                (click)="scrollToPlayingAlbum(false)"
+            ></app-icon-button>
+            <app-icon-button
                 *ngIf="this.hasSelectedAlbums"
                 class="mr-2"
                 icon="las la-eraser"
