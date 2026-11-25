@@ -378,6 +378,10 @@ export class PlaybackService {
         this.stop();
     }
 
+    public async jumpToSecondAsync(seconds: number): Promise<void> {
+        await this.skipToSecondsAsync(Math.max(0, seconds));
+    }
+
     public async skipByFractionOfTotalSecondsAsync(fractionOfTotalSeconds: number): Promise<void> {
         const seconds: number = fractionOfTotalSeconds * this.audioPlayer.totalSeconds;
         await this.skipToSecondsAsync(seconds);

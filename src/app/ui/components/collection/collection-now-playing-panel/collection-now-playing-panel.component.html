@@ -62,19 +62,20 @@
             </div>
             <div *ngIf="!isBusy" class="lyrics-body" [ngClass]="musicColorClass">
                 <!-- Letras sincronizadas con todas las líneas estilo WPF LyricsListBox -->
-                <ng-container *ngIf="hasRichLyrics && showRichLyrics">
+                <ng-container *ngIf="hasRichLyrics">
                     <div
                         *ngFor="let line of lyricLines; let idx = index"
                         class="lyric-line"
-                        [ngClass]="{ active: idx === activeLyricIndex }"
+                        [ngClass]="{ active: idx === activeLyricIndex, clickable: line.timestamp >= 0 }"
                         [id]="'lyric-line-' + idx"
+                        (click)="onLyricLineClick(line)"
                     >
-                        {{ line.text }}
+                        {{ line.text || '&nbsp;' }}
                     </div>
                 </ng-container>
 
                 <!-- Letras sin sincronizar en texto plano -->
-                <div *ngIf="hasLyrics && (!hasRichLyrics || !showRichLyrics)" class="plain-lyrics-body">
+                <div *ngIf="hasLyrics && !hasRichLyrics" class="plain-lyrics-body">
                     {{ lyrics?.plainText }}
                 </div>
 

@@ -140,6 +140,15 @@
                 opacity: 0.65;
                 transition: opacity 0.2s ease, font-size 0.2s ease, font-weight 0.2s ease;
                 word-break: break-word;
+                cursor: default;
+
+                &.clickable {
+                    cursor: pointer;
+                }
+
+                &:hover {
+                    opacity: 0.85;
+                }
 
                 &.active {
                     opacity: 1 !important;
