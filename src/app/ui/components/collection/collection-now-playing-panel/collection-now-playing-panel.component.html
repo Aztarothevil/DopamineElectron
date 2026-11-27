@@ -1,13 +1,42 @@
 <div class="app-collection-now-playing-panel">
     <div *ngIf="track" class="panel-content">
         <!-- Bloque superior horizontal: Portada a la izquierda + Metadatos a la derecha -->
-        <div class="top-info-block d-flex flex-row align-items-start mb-3">
-            <div class="cover-container mr-3 flex-shrink-0">
-                <app-playback-cover-art
-                    class="cover-art"
-                    [size]="130"
-                    [borderRadius]="settings.showSquareImages ? 0 : 4"
-                ></app-playback-cover-art>
+        <div class="top-info-block d-flex flex-row align-items-start mb-2">
+            <div class="cover-wrapper d-flex flex-column mr-3 flex-shrink-0">
+                <div class="cover-container">
+                    <app-playback-cover-art
+                        class="cover-art"
+                        [size]="coverSize"
+                        [borderRadius]="settings.showSquareImages ? 0 : 4"
+                    ></app-playback-cover-art>
+                </div>
+
+                <!-- Indicador de origen de la letra estilo WPF C# (debajo de la portada) -->
+                <div class="lyrics-source-badge d-flex align-items-center mt-2" [ngClass]="musicColorClass" *ngIf="lyrics && lyrics.sourceType !== lyricsSourceTypeEnum.none">
+                    <!-- Embedded lyrics (Audio file) -->
+                    <ng-container *ngIf="lyrics.sourceType === lyricsSourceTypeEnum.embedded">
+                        <i class="las la-file-audio badge-icon mr-1"></i>
+                        <span class="badge-text">Audio file</span>
+                    </ng-container>
+
+                    <!-- LRC file -->
+                    <ng-container *ngIf="lyrics.sourceType === lyricsSourceTypeEnum.lrc">
+                        <i class="las la-file-alt badge-icon mr-1"></i>
+                        <span class="badge-text">LRC file</span>
+                    </ng-container>
+
+                    <!-- SRT file -->
+                    <ng-container *ngIf="lyrics.sourceType === lyricsSourceTypeEnum.srt">
+                        <i class="las la-file-alt badge-icon mr-1"></i>
+                        <span class="badge-text">SRT file</span>
+                    </ng-container>
+
+                    <!-- Online lyrics -->
+                    <ng-container *ngIf="lyrics.sourceType === lyricsSourceTypeEnum.online">
+                        <i class="las la-globe badge-icon mr-1"></i>
+                        <span class="badge-text">{{ lyrics.sourceName || 'Online' }}</span>
+                    </ng-container>
+                </div>
             </div>
 
             <!-- Metadatos de la pista (Track info estilo WPF) -->
@@ -16,7 +45,7 @@
                     <span class="info-label">{{ 'artist' | translate }}:</span>
                     <span class="info-value ellipsis" [matTooltip]="track.artists">{{ track.artists }}</span>
                 </div>
-                <div class="info-row">
+                <div class="info-row highlighted-title">
                     <span class="info-label">{{ 'title' | translate }}:</span>
                     <span class="info-value ellipsis" [matTooltip]="track.title">{{ track.title }}</span>
                 </div>
@@ -46,15 +75,43 @@
                         <app-rating [track]="track"></app-rating>
                     </div>
                 </div>
+
+                <!-- Mini controles de reproducción integrados debajo de Rating -->
+                <div class="info-playback-controls d-flex flex-row align-items-center mt-2">
+                    <div
+                        class="control-btn pointer"
+                        (click)="playbackService.playPreviousAsync()"
+                        matTooltip="{{ 'previous' | translate }}"
+                    >
+                        <i class="las la-step-backward"></i>
+                    </div>
+                    <div
+                        *ngIf="playbackService.canPause"
+                        class="control-btn pointer mx-2"
+                        (click)="playbackService.pause()"
+                        matTooltip="{{ 'pause' | translate }}"
+                    >
+                        <i class="las la-pause"></i>
+                    </div>
+                    <div
+                        *ngIf="playbackService.canResume"
+                        class="control-btn pointer mx-2"
+                        (click)="playbackService.resumeAsync()"
+                        matTooltip="{{ 'play' | translate }}"
+                    >
+                        <i class="las la-play"></i>
+                    </div>
+                    <div
+                        class="control-btn pointer"
+                        (click)="playbackService.playNextAsync()"
+                        matTooltip="{{ 'next' | translate }}"
+                    >
+                        <i class="las la-step-forward"></i>
+                    </div>
+                </div>
             </div>
         </div>
-
-        <!-- Encabezado de la pista en reproducción para Lyrics -->
-        <div class="lyrics-header" [ngClass]="musicColorClass">
-            <div class="lyrics-title ellipsis">{{ track.title }}</div>
-            <div class="lyrics-artist ellipsis">{{ track.artists }}</div>
-        </div>
-
+        
         <!-- Contenedor de Letras con scroll continuo estilo WPF (todas las líneas visibles, centradas y con resaltado) -->
         <div class="lyrics-container" #lyricsScrollContainer>
             <div *ngIf="isBusy" class="lyrics-spinner">

@@ -15,15 +15,58 @@
         overflow: hidden;
     }
 
-    .cover-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin-bottom: 12px;
-        flex-shrink: 0;
+    .cover-wrapper {
+        .cover-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
 
-        .cover-art {
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+            .cover-art {
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+            }
+        }
+
+        .lyrics-source-badge {
+            font-size: 11.5px;
+            color: var(--brush-music-primary-text, #DAA520);
+            opacity: 0.9;
+            user-select: none;
+            transition: color 0.3s ease;
+
+            .badge-icon {
+                font-size: 20px;
+                color: inherit;
+            }
+
+            .badge-text {
+                font-size: 14px;
+                font-weight: 500;
+                color: inherit;
+            }
+
+            &.music-color-hi-res {
+                color: #DAA520 !important;
+                .badge-icon,
+                .badge-text {
+                    color: #DAA520 !important;
+                }
+            }
+
+            &.music-color-cd {
+                color: #33ffee !important;
+                .badge-icon,
+                .badge-text {
+                    color: #33ffee !important;
+                }
+            }
+
+            &.music-color-standard {
+                color: #e2e2e2 !important;
+                .badge-icon,
+                .badge-text {
+                    color: #e2e2e2 !important;
+                }
+            }
         }
     }
 
@@ -31,11 +74,12 @@
         display: flex;
         flex-direction: column;
         gap: 3px;
-        font-size: 11.5px;
+        font-size: 13px;
         line-height: 1.35;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
         flex-shrink: 0;
         transition: color 0.3s ease;
+        color: var(--brush-music-primary-text, #DAA520);
 
         .info-row {
             display: flex;
@@ -47,34 +91,133 @@
                 width: 58px;
                 flex-shrink: 0;
                 text-align: right;
-                opacity: 0.7;
+                color: var(--brush-music-secondary-text, #DAA520);
+                opacity: 0.95;
             }
 
             .info-value {
                 flex-grow: 1;
                 font-weight: 500;
+                color: var(--brush-music-secondary-text, #DAA520);
+
+                app-rating {
+                    .accent-color-important {
+                        color: var(--brush-music-secondary-text, #DAA520) !important;
+                    }
+                    .secondary-text {
+                        color: var(--brush-music-secondary-text, #DAA520) !important;
+                        opacity: 0.4;
+                    }
+                }
+            }
+
+            /* Resaltado para el título (y artista) con el color primario suave brillante */
+            &.highlighted-title {
+                .info-label {
+                    color: var(--brush-music-primary-text, #FFED8A) !important;
+                    opacity: 1;
+                }
+                .info-value {
+                    color: var(--brush-music-primary-text, #FFED8A) !important;
+                    font-weight: 600;
+                }
+            }
+        }
+
+        .info-playback-controls {
+            padding-left: 64px;
+            gap: 12px;
+
+            .control-btn {
+                color: var(--brush-music-primary-text, #DAA520);
+                font-size: 15px;
+                opacity: 0.85;
+                transition: opacity 0.2s ease, transform 0.1s ease;
+
+                &:hover {
+                    opacity: 1;
+                    transform: scale(1.1);
+                }
+
+                &:active {
+                    transform: scale(0.95);
+                }
             }
         }
 
         /* Colores dinámicos adaptados de WPF UpdateMusicColor */
         &.music-color-hi-res {
-            color: #ffed8a;
+            color: #DAA520;
             .info-label {
-                color: #daa520;
+                color: #DAA520;
+            }
+            .info-value {
+                color: #DAA520;
+            }
+            .highlighted-title {
+                .info-label,
+                .info-value {
+                    color: #FFED8A !important;
+                }
+            }
+            app-rating {
+                .accent-color-important {
+                    color: #DAA520 !important;
+                }
+                .secondary-text {
+                    color: #DAA520 !important;
+                    opacity: 0.4;
+                }
             }
         }
 
         &.music-color-cd {
-            color: #33ffee;
+            color: #1D7DD4;
             .info-label {
-                color: #1d7dd4;
+                color: #1D7DD4;
+            }
+            .info-value {
+                color: #1D7DD4;
+            }
+            .highlighted-title {
+                .info-label,
+                .info-value {
+                    color: #33FFEE !important;
+                }
+            }
+            app-rating {
+                .accent-color-important {
+                    color: #1D7DD4 !important;
+                }
+                .secondary-text {
+                    color: #1D7DD4 !important;
+                    opacity: 0.4;
+                }
             }
         }
 
         &.music-color-standard {
-            color: #e2e2e2;
+            color: #999999;
             .info-label {
                 color: #999999;
+            }
+            .info-value {
+                color: #999999;
+            }
+            .highlighted-title {
+                .info-label,
+                .info-value {
+                    color: #E2E2E2 !important;
+                }
+            }
+            app-rating {
+                .accent-color-important {
+                    color: #999999 !important;
+                }
+                .secondary-text {
+                    color: #999999 !important;
+                    opacity: 0.4;
+                }
             }
         }
     }
@@ -86,29 +229,45 @@
         text-align: center;
         margin-bottom: 8px;
         flex-shrink: 0;
+        transition: color 0.3s ease;
+        color: var(--brush-music-primary-text, #DAA520);
 
         .lyrics-title {
             font-weight: 600;
-            font-size: 13px;
+            font-size: 20px;
             width: 100%;
+            color: inherit;
         }
 
         .lyrics-artist {
-            font-size: 11.5px;
+            font-size: 20px;
             opacity: 0.8;
             width: 100%;
+            color: inherit;
         }
 
         &.music-color-hi-res {
-            color: #ffed8a;
+            color: #DAA520 !important;
+            .lyrics-title,
+            .lyrics-artist {
+                color: #DAA520 !important;
+            }
         }
 
         &.music-color-cd {
-            color: #33ffee;
+            color: #33ffee !important;
+            .lyrics-title,
+            .lyrics-artist {
+                color: #33ffee !important;
+            }
         }
 
         &.music-color-standard {
-            color: #e2e2e2;
+            color: #e2e2e2 !important;
+            .lyrics-title,
+            .lyrics-artist {
+                color: #e2e2e2 !important;
+            }
         }
     }
 
@@ -134,11 +293,12 @@
 
             .lyric-line {
                 padding: 3px 6px;
-                font-size: 13px;
+                font-size: 18px;
                 font-family: inherit;
                 line-height: 1.5;
-                opacity: 0.65;
-                transition: opacity 0.2s ease, font-size 0.2s ease, font-weight 0.2s ease;
+                color: var(--brush-music-secondary-text, #999999);
+                opacity: 0.75;
+                transition: opacity 0.2s ease, font-size 0.2s ease, font-weight 0.2s ease, color 0.2s ease;
                 word-break: break-word;
                 cursor: default;
 
@@ -147,12 +307,13 @@
                 }
 
                 &:hover {
-                    opacity: 0.85;
+                    opacity: 0.95;
                 }
 
                 &.active {
+                    color: var(--brush-music-primary-text, #ffffff) !important;
                     opacity: 1 !important;
-                    font-size: 14.5px;
+                    font-size: 20px;
                     font-weight: 700;
                 }
             }
@@ -166,7 +327,7 @@
             }
 
             &.music-color-hi-res {
-                color: #ffed8a;
+                color: #DAA520;
             }
 
             &.music-color-cd {

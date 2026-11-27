@@ -28,7 +28,7 @@
 
             &.active-all-folders {
                 .folder-title {
-                    color: var(--theme-accent-color, #a855f7) !important;
+                    color: var(--theme-accent-color, #4883e0) !important;
                     font-weight: 600;
                 }
             }
@@ -63,8 +63,8 @@
                 width: 26px;
                 height: 26px;
                 border-radius: 13px 13px 13px 2px;
-                background: #8b5cf6;
-                color: #ffffff;
+                background: var(--theme-accent-color, #4883e0);
+                color: var(--theme-highlight-foreground, #ffffff);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -95,9 +95,9 @@
                 }
 
                 &.selected-folder-item {
-                    color: var(--theme-accent-color, #a855f7);
+                    color: var(--theme-accent-color, #4883e0);
                     font-weight: 600;
-                    background: rgba(139, 92, 246, 0.12);
+                    background: rgba(72, 131, 224, 0.15);
                 }
             }
         }

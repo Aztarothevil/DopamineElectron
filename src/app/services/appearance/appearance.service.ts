@@ -244,6 +244,9 @@ export class AppearanceService implements AppearanceServiceBase {
 
         this.subscription.add(
             this.playbackService.playbackStarted$.subscribe((playbackStarted: PlaybackStarted) => {
+                if (playbackStarted && playbackStarted.currentTrack) {
+                    this.updateMusicColor(playbackStarted.currentTrack.bitRate);
+                }
                 if (this.settings.followAlbumCoverColor) {
                     PromiseUtils.noAwait(this.safeApplyThemeAsync());
                 }
@@ -497,5 +500,29 @@ export class AppearanceService implements AppearanceServiceBase {
         }
 
         return themes;
+    }
+
+    public updateMusicColor(bitRate: number): void {
+        let primaryText: string;
+        let secondaryText: string;
+
+        if (bitRate > 2000) {
+            primaryText = '#c5b248ff';
+            secondaryText = '#DAA520';
+        } else if (bitRate > 510) {
+            primaryText = '#33FFEE';
+            secondaryText = '#1D7DD4';
+        } else {
+            primaryText = '#E2E2E2';
+            secondaryText = '#5E5E5E';
+        }
+
+        const element: HTMLElement = this.documentProxy.getDocumentElement();
+        if (element) {
+            element.style.setProperty('--color-music-soft-white', primaryText);
+            element.style.setProperty('--color-music-dark-grey8', secondaryText);
+            element.style.setProperty('--brush-music-primary-text', primaryText);
+            element.style.setProperty('--brush-music-secondary-text', secondaryText);
+        }
     }
 }

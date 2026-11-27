@@ -22,4 +22,5 @@ export abstract class AppearanceServiceBase {
     public abstract refreshThemes(): void;
     public abstract applyAppearanceAsync(): Promise<void>;
     public abstract applyMargins(isSearchVisible: boolean): void;
+    public abstract updateMusicColor(bitRate: number): void;
 }

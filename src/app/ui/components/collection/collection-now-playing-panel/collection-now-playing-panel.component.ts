@@ -6,12 +6,15 @@ import { SettingsBase } from '../../../../common/settings/settings.base';
 import { TrackModel } from '../../../../services/track/track-model';
 import { LyricsModel } from '../../../../services/lyrics/lyrics-model';
 import { LyricsServiceBase } from '../../../../services/lyrics/lyrics.service.base';
+import { LyricsSourceType } from '../../../../common/api/lyrics/lyrics-source-type';
 import { PlaybackInformationService } from '../../../../services/playback-information/playback-information.service';
 import { PlaybackInformation } from '../../../../services/playback-information/playback-information';
 import { PlaybackService } from '../../../../services/playback/playback.service';
 import { PlaybackProgress } from '../../../../services/playback/playback-progress';
 
 import { LrcLyricsGetter } from '../../../../services/lyrics/lrc-lyrics-getter';
+
+import { AppearanceServiceBase } from '../../../../services/appearance/appearance.service.base';
 
 export interface LyricLineItem {
     text: string;
@@ -33,10 +36,12 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
     private previousTrackPath: string = '';
     public isBusy: boolean = false;
     public track: TrackModel | undefined;
-    public coverSize: number = 190;
+    public coverSize: number = 220;
     public lyricLines: LyricLineItem[] = [];
     public activeLyricIndex: number = -1;
     private highlightTimerId: number | undefined;
+
+    public lyricsSourceTypeEnum: typeof LyricsSourceType = LyricsSourceType;
 
     // Variables de desplazamiento karaoke tomadas de ScrollUtils.cs
     private currentIndex: number = 0;
@@ -52,10 +57,11 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
 
     public constructor(
         public settings: SettingsBase,
+        public playbackService: PlaybackService,
         private playbackInformationService: PlaybackInformationService,
-        private playbackService: PlaybackService,
         private lyricsService: LyricsServiceBase,
         private lrcLyricsGetter: LrcLyricsGetter,
+        private appearanceService: AppearanceServiceBase,
     ) {}
 
     public get hasLyrics(): boolean {
@@ -154,6 +160,10 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
         if (track == undefined) {
             this._lyrics = undefined;
             return;
+        }
+
+        if (track.bitRate) {
+            this.appearanceService.updateMusicColor(track.bitRate);
         }
 
         if (this.previousTrackPath === track.path && this._lyrics != undefined) {
