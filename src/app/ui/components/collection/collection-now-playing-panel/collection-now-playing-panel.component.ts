@@ -21,6 +21,7 @@ export interface LyricLineItem {
     timestamp: number; // in milliseconds
     duration: number; // in milliseconds
     index: number;
+    isHighlighted?: boolean;
 }
 
 @Component({
@@ -40,6 +41,9 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
     public lyricLines: LyricLineItem[] = [];
     public activeLyricIndex: number = -1;
     private highlightTimerId: number | undefined;
+    private animationFrameId: number | undefined;
+    private currentScrollTop: number = 0;
+    private targetScrollTop: number = 0;
 
     public lyricsSourceTypeEnum: typeof LyricsSourceType = LyricsSourceType;
 
@@ -95,12 +99,14 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
 
     public ngOnDestroy(): void {
         this.stopHighlightTimer();
+        this.stopScrollAnimation();
         this.subscription.unsubscribe();
     }
 
     public async ngOnInit(): Promise<void> {
         this.initializeSubscriptions();
         this.startHighlightTimer();
+        this.startScrollAnimation();
         const currentPlaybackInfo: PlaybackInformation = await this.playbackInformationService.getCurrentPlaybackInformationAsync();
         this.track = currentPlaybackInfo.track;
         await this.loadLyricsAsync(this.track);
@@ -113,7 +119,7 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
                     const currentMs = this.playbackService.getCurrentProgress().progressSeconds * 1000;
                     this.updateActiveLyricLine(currentMs);
                 }
-            }, 100);
+            }, 30);
         }
     }
 
@@ -121,6 +127,46 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
         if (this.highlightTimerId !== undefined) {
             window.clearInterval(this.highlightTimerId);
             this.highlightTimerId = undefined;
+        }
+    }
+
+    private startScrollAnimation(): void {
+        const animate = (): void => {
+            if (this.lyricsScrollContainer && this.lyricsScrollContainer.nativeElement) {
+                const container = this.lyricsScrollContainer.nativeElement;
+
+                // Si la música está reproduciéndose, calcular de forma continua la posición en base al tiempo exacto
+                if (this.playbackService.isPlaying && this.lyricLines.length > 0) {
+                    const currentMs = this.playbackService.getCurrentProgress().progressSeconds * 1000;
+                    const computed = this.calculateContinuousScrollTarget(container, currentMs);
+                    if (computed !== undefined) {
+                        this.targetScrollTop = computed;
+                    }
+                }
+
+                const diff = this.targetScrollTop - this.currentScrollTop;
+
+                if (Math.abs(diff) > 0.1) {
+                    // Si el salto es brusco (por ejemplo el usuario adelantó o retrocedió mucho)
+                    if (Math.abs(diff) > 200) {
+                        this.currentScrollTop = this.targetScrollTop;
+                    } else {
+                        // Interpolación continua adaptativa
+                        const step = diff * 0.1;
+                        this.currentScrollTop += Math.abs(step) < 0.15 ? diff : step;
+                    }
+                    container.scrollTop = this.currentScrollTop;
+                }
+            }
+            this.animationFrameId = requestAnimationFrame(animate);
+        };
+        this.animationFrameId = requestAnimationFrame(animate);
+    }
+
+    private stopScrollAnimation(): void {
+        if (this.animationFrameId !== undefined) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = undefined;
         }
     }
 
@@ -199,6 +245,11 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
         this.lastPositionLyric = 0;
         this.lastDuration = 0;
         this.lastDurationLyrc = 0;
+        this.currentScrollTop = 0;
+        this.targetScrollTop = 0;
+        if (this.lyricsScrollContainer && this.lyricsScrollContainer.nativeElement) {
+            this.lyricsScrollContainer.nativeElement.scrollTop = 0;
+        }
 
         if (!this._lyrics) {
             return;
@@ -256,6 +307,7 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
                             timestamp: ms,
                             duration: 0,
                             index: index++,
+                            isHighlighted: false,
                         });
                     }
                 }
@@ -285,6 +337,7 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
                     timestamp: -1,
                     duration: 0,
                     index: this.lyricLines.length,
+                    isHighlighted: false,
                 });
             }
         }
@@ -299,93 +352,120 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
             return;
         }
 
-        let foundIdx = -1;
+        let firstActiveIdx = -1;
+
+        // Implementación idéntica a LyricsControlViewModel.cs en C#:
+        // double progressTime = this.playbackService.GetCurrentTime.TotalMilliseconds;
+        // double lyricsLineTime = this.LyricsViewModel.LyricsLines[i].Time.TotalMilliseconds;
+        // double nextLyricsLineTime = 0;
+        // while (i + j < this.LyricsViewModel.LyricsLines.Count && nextLyricsLineTime <= lyricsLineTime) {
+        //     nextLyricsLineTime = this.LyricsViewModel.LyricsLines[i + j].Time.TotalMilliseconds;
+        //     j++;
+        // }
+        // if (progressTime >= lyricsLineTime & (nextLyricsLineTime >= progressTime | nextLyricsLineTime == 0)) {
+        //     this.LyricsViewModel.LyricsLines[i].IsHighlighted = true;
+        // }
         for (let i = 0; i < this.lyricLines.length; i++) {
-            if (this.lyricLines[i].timestamp >= 0 && currentMs >= this.lyricLines[i].timestamp) {
-                foundIdx = i;
-            } else if (this.lyricLines[i].timestamp >= 0 && this.lyricLines[i].timestamp > currentMs) {
-                break;
+            const line = this.lyricLines[i];
+            if (line.timestamp < 0) {
+                line.isHighlighted = false;
+                continue;
+            }
+
+            let nextTime = 0;
+            for (let j = i + 1; j < this.lyricLines.length; j++) {
+                if (this.lyricLines[j].timestamp > line.timestamp) {
+                    nextTime = this.lyricLines[j].timestamp;
+                    break;
+                }
+            }
+
+            const isHighlighted = currentMs >= line.timestamp && (nextTime === 0 || nextTime > currentMs);
+            line.isHighlighted = isHighlighted;
+
+            if (isHighlighted && firstActiveIdx === -1) {
+                firstActiveIdx = i;
             }
         }
 
-        this.activeLyricIndex = foundIdx;
+        this.activeLyricIndex = firstActiveIdx;
 
-        if (foundIdx >= 0) {
-            this.scrollToTextListItem(foundIdx, true);
+        if (firstActiveIdx >= 0) {
+            this.scrollToTextListItem(firstActiveIdx, true);
         }
     }
 
     /**
-     * Implementación exacta de ScrollToTextListItem de ScrollUtils.cs para seguimiento tipo Karaoke
+     * Calcula de forma continua y proporcional al tiempo la posición de scroll.
+     * La velocidad del scroll acelera o desacelera suavemente según la duración entre versos,
+     * avanzando de forma continua sin pausas bruscas.
      */
-    public scrollToTextListItem(itemIndex: number, scrollOnlyIfNotInView: boolean): void {
-        if (!this.lyricsScrollContainer || !this.lyricsScrollContainer.nativeElement) {
-            return;
-        }
-        const container = this.lyricsScrollContainer.nativeElement;
-        const item = this.lyricLines[itemIndex];
-        if (!item) {
-            return;
-        }
+    private calculateContinuousScrollTarget(container: HTMLElement, currentMs: number): number | undefined {
+        const targetViewportAnchor = container.clientHeight * 0.30; // 20% arriba del centro (30% del viewport)
 
-        // Si item.Index == 0 o item.Index < 10
-        if (scrollOnlyIfNotInView && (item.index === 0 || item.index < 10)) {
-            if (container.scrollTop !== 0) {
-                const el = document.getElementById('lyric-line-' + itemIndex);
-                if (el) {
-                    const elTop = el.offsetTop - container.offsetTop;
-                    const elBottom = elTop + el.clientHeight;
-                    // Solo si no está visible o al inicio
-                    if (item.index === 0 || elTop < container.scrollTop || elBottom > container.scrollTop + container.clientHeight) {
-                        const targetTop = item.index === 0 ? 0 : Math.max(0, elTop - container.clientHeight / 2 + el.clientHeight / 2);
-                        container.scrollTo({ top: targetTop, behavior: 'smooth' });
-                    }
-                } else if (item.index === 0) {
-                    container.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-            }
-            this.lastPosition = 0;
-            this.position = 0;
-            this.contador = 0;
-            return;
-        }
-
-        if (item.duration === 0) {
-            return;
-        }
-
-        const lineHeight = 28; // 28px por item como en C#
-
-        if (this.currentIndex !== item.index) {
-            this.lastPositionLyric = ((item.index - 10) * lineHeight) + lineHeight;
-            this.lastDurationLyrc = item.duration;
-
-            if ((this.currentIndex < item.index - 1 || this.currentIndex > item.index + 1) && item.index > 11) {
-                this.lastPosition = this.lastPositionLyric;
-                this.position = this.lastPositionLyric;
-                container.scrollTop = this.position;
-            }
-
-            this.currentIndex = item.index;
-            this.contador = 0;
-        }
-
-        if (this.lastPosition === this.position) {
-            this.lastPosition = this.lastPositionLyric;
-            this.lastDuration = this.lastDurationLyrc;
-            this.contador = 0;
-        }
-
-        this.contador++;
-
-        const modulo = Math.max(1, Math.floor((this.lastDuration * 40) / 9200));
-
-        if (this.contador % modulo === 0) {
-            if (this.position <= this.lastPosition) {
-                this.position += 1;
-                container.scrollTop = this.position;
+        // Encontrar la línea actual y la siguiente línea con timestamp mayor
+        let currentIdx = -1;
+        for (let i = 0; i < this.lyricLines.length; i++) {
+            if (this.lyricLines[i].timestamp >= 0 && currentMs >= this.lyricLines[i].timestamp) {
+                currentIdx = i;
+            } else if (this.lyricLines[i].timestamp > currentMs) {
+                break;
             }
         }
+
+        if (currentIdx === -1) {
+            return 0;
+        }
+
+        const currentEl = document.getElementById('lyric-line-' + currentIdx);
+        if (!currentEl) {
+            return undefined;
+        }
+
+        const currentPos = Math.max(0, (currentEl.offsetTop - container.offsetTop + currentEl.clientHeight / 2) - targetViewportAnchor);
+
+        // Buscar la siguiente línea con timestamp distinto para interpolar entre ambas
+        let nextIdx = -1;
+        for (let j = currentIdx + 1; j < this.lyricLines.length; j++) {
+            if (this.lyricLines[j].timestamp > this.lyricLines[currentIdx].timestamp) {
+                nextIdx = j;
+                break;
+            }
+        }
+
+        if (nextIdx === -1) {
+            return currentPos;
+        }
+
+        const nextEl = document.getElementById('lyric-line-' + nextIdx);
+        if (!nextEl) {
+            return currentPos;
+        }
+
+        const nextPos = Math.max(0, (nextEl.offsetTop - container.offsetTop + nextEl.clientHeight / 2) - targetViewportAnchor);
+
+        // Si aún no hemos alcanzado el punto de anclaje inicial (30% superior), mantener en 0
+        if (currentPos === 0 && nextPos === 0) {
+            return 0;
+        }
+
+        const tStart = this.lyricLines[currentIdx].timestamp;
+        const tEnd = this.lyricLines[nextIdx].timestamp;
+        const duration = tEnd - tStart;
+
+        if (duration <= 0) {
+            return currentPos;
+        }
+
+        // Progreso continuo fraccional [0 .. 1] a lo largo del verso actual
+        const progress = Math.min(1, Math.max(0, (currentMs - tStart) / duration));
+
+        // Interpolar continuamente entre la posición de la línea actual y la siguiente
+        return currentPos + (nextPos - currentPos) * progress;
+    }
+
+    public scrollToTextListItem(itemIndex: number, _scrollOnlyIfNotInView: boolean): void {
+        // El scroll continuo y variable se procesa en el bucle calculateContinuousScrollTarget
     }
 
     public async onLyricLineClick(line: LyricLineItem): Promise<void> {

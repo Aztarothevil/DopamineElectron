@@ -123,7 +123,7 @@
                     <div
                         *ngFor="let line of lyricLines; let idx = index"
                         class="lyric-line"
-                        [ngClass]="{ active: idx === activeLyricIndex, clickable: line.timestamp >= 0 }"
+                        [ngClass]="{ active: line.isHighlighted || idx === activeLyricIndex, clickable: line.timestamp >= 0 }"
                         [id]="'lyric-line-' + idx"
                         (click)="onLyricLineClick(line)"
                     >
