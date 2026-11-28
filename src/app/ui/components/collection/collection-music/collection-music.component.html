@@ -42,15 +42,18 @@
             <app-collection-now-playing-panel class="fill"></app-collection-now-playing-panel>
         </as-split-area>
 
-        <!-- Columna 3 (Centro): Cuadrícula de Álbumes -->
+        <!-- Columna 3 (Centro): Cuadrícula de Canciones -->
         <as-split-area [size]="albumsPaneSize" minSize="20" maxSize="60">
             <app-album-browser
                 class="p-2 fill"
                 [albums]="this.albums | albumsFilter: this.searchService.delayedSearchText"
                 [(albumsPersister)]="this.albumsPersister"
                 [songsQueueMode]="true"
+                [musicOrderText]="this.musicOrderText"
+                [currentMusicOrderText]="this.currentMusicOrderText"
+                (musicOrderToggled)="this.onToggleMusicOrder()"
                 [contextTracks]="this.centerTracks.tracks"
-                [totalTracksCount]="this.tracks.numberOfTracks"
+                [totalTracksCount]="this.centerTracks.numberOfTracks"
                 scrollPositionKey="music-albums"
             ></app-album-browser>
         </as-split-area>
@@ -62,7 +65,7 @@
                     class="p-2 fill"
                     [tracks]="this.tracks | tracksFilter: this.searchService.delayedSearchText"
                     [(tracksPersister)]="this.tracksPersister"
-                    [trackOrders]="this.trackOrders"
+                    [showOrdering]="false"
                     [canShowHeader]="false"
                     scrollPositionKey="music-tracks"
                 ></app-track-browser>

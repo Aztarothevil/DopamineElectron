@@ -5,6 +5,9 @@ import { Constants } from '../../../../common/application/constants';
 import { Logger } from '../../../../common/logger';
 import { PromiseUtils } from '../../../../common/utils/promise-utils';
 import { AlbumModel } from '../../../../services/album/album-model';
+import { AlbumData } from '../../../../data/entities/album-data';
+import { ApplicationPaths } from '../../../../common/application/application-paths';
+import { TranslatorServiceBase } from '../../../../services/translator/translator.service.base';
 import { TrackModels } from '../../../../services/track/track-models';
 import { FolderModel } from '../../../../services/folder/folder-model';
 import { SubfolderModel } from '../../../../services/folder/subfolder-model';
@@ -19,8 +22,9 @@ import { SchedulerBase } from '../../../../common/scheduling/scheduler.base';
 import { TrackOrder } from '../track-order';
 import { AlbumsAlbumsPersister } from '../collection-albums/albums-albums-persister';
 import { MusicTracksPersister } from './music-tracks-persister';
-import { AlbumRowsGetter } from '../album-browser/album-rows-getter';
 import { TrackModel } from '../../../../services/track/track-model';
+import { TrackSorter } from '../../../../common/sorting/track-sorter';
+import { MusicOrder } from './music-order';
 
 export interface FolderItemDisplay {
     name: string;
@@ -55,18 +59,20 @@ export class CollectionMusicComponent implements OnInit, OnDestroy {
     public tracks: TrackModels = new TrackModels();
     public centerTracks: TrackModels = new TrackModels();
 
+    public musicOrder: MusicOrder = MusicOrder.Alphabetical;
+    public musicOrderText: string = '';
+    public currentMusicOrderText: string = '';
+
     public trackOrders: TrackOrder[] = [
-        TrackOrder.byDateModifiedDescending,
-        TrackOrder.byDateModifiedAscending,
-        TrackOrder.byDateCreatedDescending,
-        TrackOrder.byDateCreatedAscending,
-        TrackOrder.byRating,
         TrackOrder.byTrackTitleAscending,
-        TrackOrder.byTrackTitleDescending,
-        TrackOrder.byFileNameAscending,
-        TrackOrder.byFileNameDescending,
-        TrackOrder.byAlbum,
+        TrackOrder.byDateCreatedAscending,
+        TrackOrder.byDateCreatedDescending,
+        TrackOrder.byDateModifiedAscending,
+        TrackOrder.byDateModifiedDescending,
+        TrackOrder.byRating,
     ];
+
+    private currentFolderRawTracks: TrackModel[] = [];
 
     public constructor(
         public searchService: SearchServiceBase,
@@ -79,7 +85,9 @@ export class CollectionMusicComponent implements OnInit, OnDestroy {
         private trackService: TrackServiceBase,
         private playbackService: PlaybackService,
         private scheduler: SchedulerBase,
-        private albumRowsGetter: AlbumRowsGetter,
+        private trackSorter: TrackSorter,
+        private translatorService: TranslatorServiceBase,
+        private applicationPaths: ApplicationPaths,
         private logger: Logger,
     ) {}
 
@@ -88,20 +96,15 @@ export class CollectionMusicComponent implements OnInit, OnDestroy {
         this.albums = [];
         this.tracks = new TrackModels();
         this.centerTracks = new TrackModels();
+        this.currentFolderRawTracks = [];
     }
 
     public async ngOnInit(): Promise<void> {
-        this.subscription.add(
-            this.playbackService.playbackStarted$.subscribe(() => {
-                // Al reproducir (o restaurar), reflejar la cola de reproducción en la lista lateral derecha (TracksCvs en C#)
-                this.updateRightPaneTracks();
-            }),
-        );
+        this.updateMusicOrderText(this.musicOrder);
 
         this.subscription.add(
-            this.albumsPersister.selectedAlbumOrderChanged$.subscribe(() => {
-                // Cuando el usuario cambia el criterio de ordenamiento de los álbumes en el centro
-                this.onAlbumOrderChanged();
+            this.playbackService.playbackStarted$.subscribe(() => {
+                this.updateRightPaneTracks();
             }),
         );
 
@@ -137,28 +140,149 @@ export class CollectionMusicComponent implements OnInit, OnDestroy {
 
         this.selectedFolderItem = item;
         const tracksForFolder = await this.trackService.getTracksInSubfolderAsync(item.path);
-        const albumKeys = Array.from(new Set(tracksForFolder.tracks.map((t) => t.albumKey)));
-        this.albums = this.albumService.getAllAlbums().filter((a) => albumKeys.includes(a.albumKey));
-        this.centerTracks = this.orderTracksByAlbumOrder(tracksForFolder.tracks, this.albums);
-        this.tracks = this.centerTracks;
+        this.currentFolderRawTracks = tracksForFolder.tracks;
+        this.applyCurrentMusicOrder();
     }
 
     public selectAllFolders(): void {
         this.selectedFolderItem = undefined;
-        this.albums = this.albumService.getAllAlbums();
         const allTracks = this.trackService.getVisibleTracks();
-        this.centerTracks = this.orderTracksByAlbumOrder(allTracks.tracks, this.albums);
+        this.currentFolderRawTracks = allTracks.tracks;
+        this.applyCurrentMusicOrder();
+    }
+
+    public onToggleMusicOrder(): void {
+        switch (this.musicOrder) {
+            case MusicOrder.Alphabetical:
+                this.musicOrder = MusicOrder.ByDateCreated;
+                break;
+            case MusicOrder.ByDateCreated:
+                this.musicOrder = MusicOrder.ReverseByDateCreated;
+                break;
+            case MusicOrder.ReverseByDateCreated:
+                this.musicOrder = MusicOrder.ByDateModified;
+                break;
+            case MusicOrder.ByDateModified:
+                this.musicOrder = MusicOrder.ReverseByDateModified;
+                break;
+            case MusicOrder.ReverseByDateModified:
+                this.musicOrder = MusicOrder.ByRating;
+                break;
+            case MusicOrder.ByRating:
+                this.musicOrder = MusicOrder.Alphabetical;
+                break;
+            default:
+                this.musicOrder = MusicOrder.Alphabetical;
+                break;
+        }
+
+        this.updateMusicOrderText(this.musicOrder);
+        this.applyCurrentMusicOrder();
+    }
+
+    protected updateMusicOrderText(musicOrder: MusicOrder): void {
+        const clickText = this.translatorService.get('Language_Click_To_Order');
+        const oderText = this.translatorService.get('Language_Ordered_By');
+        switch (musicOrder) {
+            case MusicOrder.Alphabetical:
+                this.musicOrderText = clickText + this.translatorService.get('Language_Toggle_Track_Order_ByDate').toLowerCase();
+                this.currentMusicOrderText = oderText + this.translatorService.get('Language_Toggle_Track_Order_ByDate').toLowerCase();
+                break;
+            case MusicOrder.ByDateCreated:
+                this.musicOrderText = clickText + this.translatorService.get('Language_By_Reverse_Date_Modified').toLowerCase();
+                this.currentMusicOrderText = oderText + this.translatorService.get('Language_By_Date_Created').toLowerCase();
+                break;
+            case MusicOrder.ReverseByDateCreated:
+                this.musicOrderText = clickText + this.translatorService.get('Language_By_Reverse_Date_Modified').toLowerCase();
+                this.currentMusicOrderText = oderText + this.translatorService.get('Language_By_Reverse_Date_Created').toLowerCase();
+                break;
+            case MusicOrder.ByDateModified:
+                this.musicOrderText = clickText + this.translatorService.get('Language_By_Rating').toLowerCase();
+                this.currentMusicOrderText = oderText + this.translatorService.get('Language_By_Date_Modified').toLowerCase();
+                break;
+            case MusicOrder.ReverseByDateModified:
+                this.musicOrderText = clickText + this.translatorService.get('Language_By_Date_Modified').toLowerCase();
+                this.currentMusicOrderText = oderText + this.translatorService.get('Language_By_Reverse_Date_Modified').toLowerCase();
+                break;
+            case MusicOrder.ByRating:
+                this.musicOrderText = clickText + this.translatorService.get('Language_By_Date_Created').toLowerCase();
+                this.currentMusicOrderText = oderText + this.translatorService.get('Language_By_Rating').toLowerCase();
+                break;
+            default:
+                this.musicOrderText = clickText + this.translatorService.get('Language_By_Date_Modified').toLowerCase();
+                this.currentMusicOrderText = oderText + this.translatorService.get('Language_By_Reverse_Date_Modified').toLowerCase();
+                break;
+        }
+    }
+
+    private applyCurrentMusicOrder(): void {
+        if (!this.currentFolderRawTracks) {
+            this.currentFolderRawTracks = [];
+        }
+
+        let sortedTracks: TrackModel[] = [];
+        switch (this.musicOrder) {
+            case MusicOrder.Alphabetical:
+                sortedTracks = this.trackSorter.sortByTitleAscending(this.currentFolderRawTracks);
+                break;
+            case MusicOrder.ByDateCreated:
+                sortedTracks = this.trackSorter.sortByDateCreatedAscending(this.currentFolderRawTracks);
+                break;
+            case MusicOrder.ReverseByDateCreated:
+                sortedTracks = this.trackSorter.sortByDateCreatedDescending(this.currentFolderRawTracks);
+                break;
+            case MusicOrder.ByDateModified:
+                sortedTracks = this.trackSorter.sortByDateModifiedAscending(this.currentFolderRawTracks);
+                break;
+            case MusicOrder.ReverseByDateModified:
+                sortedTracks = this.trackSorter.sortByDateModifiedDescending(this.currentFolderRawTracks);
+                break;
+            case MusicOrder.ByRating:
+                sortedTracks = this.trackSorter.sortByRatingDescending(this.currentFolderRawTracks);
+                break;
+            default:
+                sortedTracks = this.trackSorter.sortByTitleAscending(this.currentFolderRawTracks);
+                break;
+        }
+
+        const centerTrackModels = new TrackModels();
+        centerTrackModels.tracks = sortedTracks;
+        this.centerTracks = centerTrackModels;
         this.tracks = this.centerTracks;
+
+        // Generar un AlbumModel (tarjeta) por cada canción individual, preservando el orden exacto de sortedTracks
+        const allAlbumModels = this.albumService.getAllAlbums();
+        const albumArtworkByKey = new Map<string, string | undefined>();
+        for (const alb of allAlbumModels) {
+            albumArtworkByKey.set(alb.albumKey, alb.artworkId);
+        }
+
+        const cards: AlbumModel[] = [];
+        for (const track of sortedTracks) {
+            const data = new AlbumData();
+            data.albumKey = track.albumKey;
+            data.albumTitle = track.albumTitle;
+            data.albumArtists = track.albumArtists;
+            data.artists = track.artists;
+            data.artworkId = albumArtworkByKey.get(track.albumKey);
+            data.year = track.year;
+            data.dateFileCreated = track.dateCreated;
+
+            const card = new AlbumModel(data, this.translatorService, this.applicationPaths);
+            card.trackTitle = track.title;
+            card.trackPath = track.path;
+            cards.push(card);
+        }
+
+        this.albums = cards;
     }
 
     public async shuffleAllAsync(): Promise<void> {
-        if (!this.albums || this.albums.length === 0) {
+        if (!this.centerTracks || this.centerTracks.tracks.length === 0) {
             return;
         }
-        const albumKeys = this.albums.map((album) => album.albumKey);
-        const tracks: TrackModels = this.trackService.getTracksForAlbums(albumKeys);
         this.playbackService.forceShuffled();
-        await this.playbackService.enqueueAndPlayTracksAsync(tracks.tracks);
+        await this.playbackService.enqueueAndPlayTracksAsync(this.centerTracks.tracks);
     }
 
     private async fillListsAsync(): Promise<void> {
@@ -169,9 +293,9 @@ export class CollectionMusicComponent implements OnInit, OnDestroy {
             await this.loadFolderItemsAsync();
 
             await this.scheduler.sleepAsync(Constants.shortListLoadDelayMilliseconds);
-            this.getAlbums();
             const visibleTracks = this.trackService.getVisibleTracks();
-            this.centerTracks = this.orderTracksByAlbumOrder(visibleTracks.tracks, this.albums);
+            this.currentFolderRawTracks = visibleTracks.tracks;
+            this.applyCurrentMusicOrder();
 
             await this.scheduler.sleepAsync(Constants.shortListLoadDelayMilliseconds);
             this.updateRightPaneTracks();
@@ -248,91 +372,15 @@ export class CollectionMusicComponent implements OnInit, OnDestroy {
         return parts.length > 0 ? parts[parts.length - 1] : p;
     }
 
-    private getAlbums(): void {
-        this.albums = this.albumService.getAllAlbums();
-    }
-
-    private orderTracksByAlbumOrder(tracks: TrackModel[], albums: AlbumModel[]): TrackModels {
-        const sortedAlbums = this.albumRowsGetter.getSortedAlbums(
-            albums,
-            this.albumsPersister.getSelectedAlbumOrder(),
-        );
-
-        const tracksByAlbum = new Map<string, TrackModel[]>();
-        for (const track of tracks) {
-            if (!tracksByAlbum.has(track.albumKey)) {
-                tracksByAlbum.set(track.albumKey, []);
-            }
-            tracksByAlbum.get(track.albumKey)!.push(track);
-        }
-
-        for (const [_, albumTracks] of tracksByAlbum) {
-            albumTracks.sort((a, b) => {
-                if (a.discNumber !== b.discNumber) {
-                    return a.discNumber - b.discNumber;
-                }
-                return a.number - b.number;
-            });
-        }
-
-        const ordered: TrackModel[] = [];
-        for (const alb of sortedAlbums) {
-            const albTracks = tracksByAlbum.get(alb.albumKey);
-            if (albTracks) {
-                ordered.push(...albTracks);
-            }
-        }
-
-        // Si hubiera alguna canción cuyo albumKey no coincidió con sortedAlbums, agregarla al final
-        const orderedPaths = new Set(ordered.map((t) => t.path));
-        for (const track of tracks) {
-            if (!orderedPaths.has(track.path)) {
-                ordered.push(track);
-            }
-        }
-
-        const result = new TrackModels();
-        result.tracks = ordered;
-        return result;
-    }
-
     private updateRightPaneTracks(): void {
         const queueTracks = this.playbackService.playbackQueue;
-        // Si hay una reproducción activa (o pistas en cola en reproducción), reflejamos la cola
         if (this.playbackService.isPlaying && queueTracks && queueTracks.numberOfTracks > 0) {
             this.tracks = queueTracks;
             return;
         }
 
-        // Si no se está reproduciendo activamente, la lista derecha muestra las canciones en el mismo orden que el panel central
         if (this.centerTracks && this.centerTracks.numberOfTracks > 0) {
             this.tracks = this.centerTracks;
-        } else {
-            this.loadDefaultTracks();
-        }
-    }
-
-    private onAlbumOrderChanged(): void {
-        if (this.centerTracks && this.centerTracks.tracks.length > 0) {
-            this.centerTracks = this.orderTracksByAlbumOrder(this.centerTracks.tracks, this.albums);
-            if (!this.playbackService.isPlaying) {
-                this.tracks = this.centerTracks;
-            }
-        }
-    }
-
-    private loadDefaultTracks(): void {
-        const visibleTracks = this.trackService.getVisibleTracks();
-        this.centerTracks = this.orderTracksByAlbumOrder(visibleTracks.tracks, this.albums);
-        this.tracks = this.centerTracks;
-    }
-
-    private getTracksForAlbumKeys(albumKeys: string[]): void {
-        if (albumKeys.length > 0) {
-            this.tracks = this.trackService.getTracksForAlbums(albumKeys);
-        } else {
-            this.tracks = this.trackService.getVisibleTracks();
         }
     }
 }
-

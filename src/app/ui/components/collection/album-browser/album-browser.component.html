@@ -53,12 +53,14 @@
                 ></app-icon-button>
             </div>
             <app-cover-size-control
+                *ngIf="!this.songsQueueMode"
                 class="mr-2"
                 titleKey="album-size"
                 [size]="this.albumCoverSize"
                 (sizeChange)="this.setAlbumCoverSize($event)"
             ></app-cover-size-control>
             <app-iterable-menu
+                *ngIf="!this.songsQueueMode"
                 [tooltipKey]="'choose-order'"
                 [currentItem]="selectedAlbumOrder"
                 [items]="albumOrders"
@@ -66,6 +68,15 @@
                 [applyItemFn]="applyAlbumOrder"
             >
             </app-iterable-menu>
+            <div
+                *ngIf="this.songsQueueMode"
+                class="d-flex flex-row align-items-center pointer user-select-none font-13px"
+                [matTooltip]="'Language_Toggle_Track_Order' | translate"
+                (click)="onToggleMusicOrder()"
+            >
+                <span class="accent-color mr-1">{{ currentMusicOrderText }}</span>
+                <span class="secondary-text">{{ musicOrderText }}</span>
+            </div>
         </div>
     </div>
     <cdk-virtual-scroll-viewport

@@ -452,5 +452,13 @@
     "remove-prefix-error": "Não foi possível remover o prefixo",
     "resume-session": "Retomar reprodução",
     "playlist-session-available": "Há uma sessão de reprodução salva para esta playlist.",
-    "playlist-changed-since-last-session": "Esta playlist foi alterada desde a última sessão. A reprodução começará do início."
+    "playlist-changed-since-last-session": "Esta playlist foi alterada desde a última sessão. A reprodução começará do início.",
+    "Language_Click_To_Order": "Click to order songs ",
+    "Language_Ordered_By": "Ordered ",
+    "Language_Toggle_Track_Order_ByDate": "Click to order songs by date",
+    "Language_By_Date_Created": "By date created",
+    "Language_By_Reverse_Date_Created": "By date created desc",
+    "Language_By_Date_Modified": "By date modified",
+    "Language_By_Reverse_Date_Modified": "By date modified desc",
+    "Language_By_Rating": "By rating"
 }

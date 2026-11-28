@@ -452,5 +452,13 @@
     "remove-prefix-error": "Không thể xóa tiền tố",
     "resume-session": "Resume session",
     "playlist-session-available": "A playback session was started for this playlist",
-    "playlist-changed-since-last-session": "This playlist has changed since the last session. Playback will start from the beginning."
+    "playlist-changed-since-last-session": "This playlist has changed since the last session. Playback will start from the beginning.",
+    "Language_Click_To_Order": "Click to order songs ",
+    "Language_Ordered_By": "Ordered ",
+    "Language_Toggle_Track_Order_ByDate": "Click to order songs by date",
+    "Language_By_Date_Created": "By date created",
+    "Language_By_Reverse_Date_Created": "By date created desc",
+    "Language_By_Date_Modified": "By date modified",
+    "Language_By_Reverse_Date_Modified": "By date modified desc",
+    "Language_By_Rating": "By rating"
 }

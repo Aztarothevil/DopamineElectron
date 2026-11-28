@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 import { MatMenuTrigger } from '@angular/material/menu';
 import { debounceTime, takeUntil } from 'rxjs/operators';
@@ -170,12 +170,17 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
 
     private updatePlayingAlbum(currentTrack: TrackModel | undefined): void {
         const currentAlbumKey = currentTrack?.albumKey;
+        const currentTrackPath = currentTrack?.path;
         const allAlbums = (this.albumRows && this.albumRows.length > 0)
             ? this.albumRows.flatMap((row) => row.albums)
             : this.albums;
 
         for (const album of allAlbums) {
-            album.isPlaying = currentAlbumKey != undefined && currentAlbumKey.length > 0 && album.albumKey === currentAlbumKey;
+            if (this.songsQueueMode && album.trackPath && currentTrackPath) {
+                album.isPlaying = album.trackPath === currentTrackPath;
+            } else {
+                album.isPlaying = currentAlbumKey != undefined && currentAlbumKey.length > 0 && album.albumKey === currentAlbumKey;
+            }
         }
     }
 
@@ -288,13 +293,24 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
             const timer = new Timer();
             timer.start();
 
-            this.albumRows = this.albumRowsGetter.getAlbumRows(
-                this.availableWidthInPixels,
-                this.albums,
-                this.selectedAlbumOrder,
-                this.useCompactYearView,
-                this.albumCoverSize + 4,
-            );
+            if (this.songsQueueMode) {
+                this.albumRows = this.albumRowsGetter.getAlbumRows(
+                    this.availableWidthInPixels,
+                    this.albums,
+                    this.selectedAlbumOrder,
+                    this.useCompactYearView,
+                    this.albumCoverSize + 4,
+                    true,
+                );
+            } else {
+                this.albumRows = this.albumRowsGetter.getAlbumRows(
+                    this.availableWidthInPixels,
+                    this.albums,
+                    this.selectedAlbumOrder,
+                    this.useCompactYearView,
+                    this.albumCoverSize + 4,
+                );
+            }
             this.selectionWatcher.setDisplayedItems((this.albumRows ?? []).flatMap((row) => row.albums));
             this.applySelectedAlbums();
             this.updatePlayingAlbum(this.playbackService.currentTrack);
@@ -340,6 +356,19 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
     public songsQueueMode: boolean = false;
 
     @Input()
+    public musicOrderText: string = '';
+
+    @Input()
+    public currentMusicOrderText: string = '';
+
+    @Output()
+    public musicOrderToggled: EventEmitter<void> = new EventEmitter<void>();
+
+    public onToggleMusicOrder(): void {
+        this.musicOrderToggled.emit();
+    }
+
+    @Input()
     public contextTracks: TrackModel[] = [];
 
     @Input()
@@ -354,43 +383,36 @@ export class AlbumBrowserComponent extends BaseVirtualScrollBrowser implements O
 
     public async onAlbumDoubleClickAsync(album: AlbumModel): Promise<void> {
         if (this.songsQueueMode && this.contextTracks && this.contextTracks.length > 0) {
-            // Estilo WPF CollectionMusic: Ordenar las pistas según el orden exacto de los álbumes en el panel central
+            // En modo canciones (CollectionMusic), encolar las canciones en el orden actual del panel central
             let tracksToEnqueue: TrackModel[] = this.contextTracks;
-            const displayedAlbums = (this.albumRows ?? []).flatMap((row) => row.albums);
-            if (displayedAlbums.length > 0) {
-                const tracksByAlbumKey = new Map<string, TrackModel[]>();
+            const displayedCards = (this.albumRows ?? []).flatMap((row) => row.albums);
+            if (displayedCards.length > 0 && displayedCards.some((a) => a.trackPath)) {
+                const tracksByPath = new Map<string, TrackModel>();
                 for (const t of this.contextTracks) {
-                    if (!tracksByAlbumKey.has(t.albumKey)) {
-                        tracksByAlbumKey.set(t.albumKey, []);
-                    }
-                    tracksByAlbumKey.get(t.albumKey)!.push(t);
+                    tracksByPath.set(t.path, t);
                 }
-
-                // Asegurar que dentro de cada álbum las canciones estén ordenadas por discNumber y trackNumber
-                for (const [_, albumTracks] of tracksByAlbumKey) {
-                    albumTracks.sort((a, b) => {
-                        if (a.discNumber !== b.discNumber) {
-                            return a.discNumber - b.discNumber;
-                        }
-                        return a.number - b.number;
-                    });
-                }
-
                 const ordered: TrackModel[] = [];
-                for (const alb of displayedAlbums) {
-                    const albTracks = tracksByAlbumKey.get(alb.albumKey);
-                    if (albTracks) {
-                        ordered.push(...albTracks);
+                for (const card of displayedCards) {
+                    if (card.trackPath) {
+                        const t = tracksByPath.get(card.trackPath);
+                        if (t) {
+                            ordered.push(t);
+                        }
                     }
                 }
-
                 if (ordered.length > 0) {
                     tracksToEnqueue = ordered;
                 }
             }
 
-            // Buscar la primera pista de este álbum
-            const albumTrack = tracksToEnqueue.find((t) => t.albumKey === album.albumKey) || tracksToEnqueue[0];
+            // Buscar la pista exacta si album tiene trackPath o trackTitle, o la primera pista de este álbum
+            let albumTrack: TrackModel | undefined;
+            if (album.trackPath) {
+                albumTrack = tracksToEnqueue.find((t) => t.path === album.trackPath);
+            }
+            if (!albumTrack) {
+                albumTrack = tracksToEnqueue.find((t) => t.albumKey === album.albumKey) || tracksToEnqueue[0];
+            }
             await this.playbackService.enqueueAndPlayTracksStartingFromGivenTrackAsync(tracksToEnqueue, albumTrack);
         } else {
             await this.playbackService.enqueueAndPlayAlbumAsync(album);

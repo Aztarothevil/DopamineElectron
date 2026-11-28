@@ -15,7 +15,9 @@ export class AlbumsFilterPipe implements PipeTransform {
         const filteredAlbums: AlbumModel[] = [];
 
         for (const album of albums) {
-            const textToSearch = [album.albumTitle, album.albumArtist, album.year.toString(), album.genres.join(' ')].join(' ');
+            const textToSearch = [album.trackTitle, album.albumTitle, album.albumArtist, album.year.toString(), album.genres.join(' ')]
+                .filter((x) => x != undefined && x.length > 0)
+                .join(' ');
             if (this.searchService.matchesSearchText(textToSearch, textToContain!)) {
                 filteredAlbums.push(album);
             }

@@ -17,6 +17,8 @@ export class AlbumModel implements ISelectable {
     public isPlaying: boolean = false;
     public showYear: boolean = false;
     public yearHeader: string = '';
+    public trackTitle?: string;
+    public trackPath?: string;
 
     public get artworkPath(): string {
         if (StringUtils.isNullOrWhiteSpace(this.albumData.artworkId)) {

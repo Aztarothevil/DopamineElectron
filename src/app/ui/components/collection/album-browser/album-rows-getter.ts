@@ -22,6 +22,7 @@ export class AlbumRowsGetter {
         albumOrder: AlbumOrder,
         useCompactYearView: boolean,
         albumWidthInPixels: number = Constants.albumSizeInPixels,
+        presorted: boolean = false,
     ): AlbumRow[] {
         const albumRows: AlbumRow[] = [];
 
@@ -34,7 +35,7 @@ export class AlbumRowsGetter {
             availableWidthInPixels,
         );
 
-        const sortedAlbums: AlbumModel[] = this.getSortedAlbums(albums, albumOrder);
+        const sortedAlbums: AlbumModel[] = presorted ? albums : this.getSortedAlbums(albums, albumOrder);
 
         let lastYear: number = -1;
         const alreadyUsedYearHeaders: string[] = [];
