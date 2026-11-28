@@ -460,5 +460,10 @@
     "Language_By_Reverse_Date_Created": "By date created desc",
     "Language_By_Date_Modified": "By date modified",
     "Language_By_Reverse_Date_Modified": "By date modified desc",
-    "Language_By_Rating": "By rating"
+    "Language_By_Rating": "By rating",
+    "Language_Play_Song_And_Insert_Timestamp": "Play the song and press Ctrl+T to insert a timestamp at the beginning of the current line, press Ctrl + F to jump current time stamp, press Ctrl + R to subtract 500 ms to current time stamp",
+    "Language_Save_In_Audio_File": "Save in audio file",
+    "Language_Cancel_Edit": "Cancel edit",
+    "Language_Add_Lyrics": "Add lyrics",
+    "Language_Edit": "Edit"
 }

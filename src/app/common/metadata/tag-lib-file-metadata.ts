@@ -91,7 +91,7 @@ export class TagLibFileMetadata implements IFileMetadata {
             tagLibFile.tag.pictures = [];
         }
 
-        // tagLibFile.tag.lyrics = this.lyrics;
+        tagLibFile.tag.lyrics = this.lyrics;
 
         tagLibFile.save();
         tagLibFile.dispose();

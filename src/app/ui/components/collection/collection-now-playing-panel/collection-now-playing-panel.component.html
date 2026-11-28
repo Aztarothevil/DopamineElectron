@@ -11,31 +11,43 @@
                     ></app-playback-cover-art>
                 </div>
 
-                <!-- Indicador de origen de la letra estilo WPF C# (debajo de la portada) -->
-                <div class="lyrics-source-badge d-flex align-items-center mt-2" [ngClass]="musicColorClass" *ngIf="lyrics && lyrics.sourceType !== lyricsSourceTypeEnum.none">
-                    <!-- Embedded lyrics (Audio file) -->
-                    <ng-container *ngIf="lyrics.sourceType === lyricsSourceTypeEnum.embedded">
-                        <i class="las la-file-audio badge-icon mr-1"></i>
-                        <span class="badge-text">Audio file</span>
-                    </ng-container>
+                <!-- Indicador de origen de la letra estilo WPF C# (debajo de la portada) con botón de edición -->
+                <div class="lyrics-source-badge d-flex align-items-center justify-content-between mt-2" [ngClass]="musicColorClass">
+                    <div class="d-flex align-items-center">
+                        <!-- Embedded lyrics (Audio file) -->
+                        <ng-container *ngIf="lyrics && lyrics.sourceType === lyricsSourceTypeEnum.embedded">
+                            <i class="las la-file-audio badge-icon mr-1"></i>
+                            <span class="badge-text">Audio file</span>
+                        </ng-container>
 
-                    <!-- LRC file -->
-                    <ng-container *ngIf="lyrics.sourceType === lyricsSourceTypeEnum.lrc">
-                        <i class="las la-file-alt badge-icon mr-1"></i>
-                        <span class="badge-text">LRC file</span>
-                    </ng-container>
+                        <!-- LRC file -->
+                        <ng-container *ngIf="lyrics && lyrics.sourceType === lyricsSourceTypeEnum.lrc">
+                            <i class="las la-file-alt badge-icon mr-1"></i>
+                            <span class="badge-text">LRC file</span>
+                        </ng-container>
 
-                    <!-- SRT file -->
-                    <ng-container *ngIf="lyrics.sourceType === lyricsSourceTypeEnum.srt">
-                        <i class="las la-file-alt badge-icon mr-1"></i>
-                        <span class="badge-text">SRT file</span>
-                    </ng-container>
+                        <!-- SRT file -->
+                        <ng-container *ngIf="lyrics && lyrics.sourceType === lyricsSourceTypeEnum.srt">
+                            <i class="las la-file-alt badge-icon mr-1"></i>
+                            <span class="badge-text">SRT file</span>
+                        </ng-container>
 
-                    <!-- Online lyrics -->
-                    <ng-container *ngIf="lyrics.sourceType === lyricsSourceTypeEnum.online">
-                        <i class="las la-globe badge-icon mr-1"></i>
-                        <span class="badge-text">{{ lyrics.sourceName || 'Online' }}</span>
-                    </ng-container>
+                        <!-- Online lyrics -->
+                        <ng-container *ngIf="lyrics && lyrics.sourceType === lyricsSourceTypeEnum.online">
+                            <i class="las la-globe badge-icon mr-1"></i>
+                            <span class="badge-text">{{ lyrics.sourceName || 'Online' }}</span>
+                        </ng-container>
+                    </div>
+
+                    <!-- Botón para editar o añadir letras estilo WPF -->
+                    <div
+                        *ngIf="!isEditingLyrics"
+                        class="lyrics-edit-btn pointer ml-2"
+                        (click)="startEditingLyrics()"
+                        [matTooltip]="(hasLyrics ? 'Language_Edit' : 'Language_Add_Lyrics') | translate"
+                    >
+                        <i class="las la-edit"></i>
+                    </div>
                 </div>
             </div>
 
@@ -112,8 +124,51 @@
             </div>
         </div>
         
+        <!-- Modo Edición de Letras y Sincronización estilo WPF C# -->
+        <div *ngIf="isEditingLyrics" class="lyrics-editor-container d-flex flex-column flex-grow">
+            <!-- Barra informativa superior con instrucciones de atajos -->
+            <div class="lyrics-edit-info p-2 mb-2">
+                <i class="las la-info-circle mr-1"></i>
+                <span>{{ 'Language_Play_Song_And_Insert_Timestamp' | translate }}</span>
+            </div>
+
+            <!-- Botones de acción: Guardar en archivo de audio / Cancelar edición -->
+            <div class="lyrics-edit-actions d-flex flex-row align-items-center mb-2">
+                <button
+                    type="button"
+                    class="btn btn-primary lyrics-action-btn mr-2"
+                    (click)="saveLyricsToAudioFileAsync()"
+                    [disabled]="isSavingLyrics"
+                >
+                    <i class="las la-save mr-1"></i>
+                    <span>{{ 'Language_Save_In_Audio_File' | translate }}</span>
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-secondary lyrics-action-btn"
+                    (click)="cancelEditingLyrics()"
+                    [disabled]="isSavingLyrics"
+                >
+                    <i class="las la-times mr-1"></i>
+                    <span>{{ 'Language_Cancel_Edit' | translate }}</span>
+                </button>
+            </div>
+
+            <!-- Editor de texto con shortcuts: Ctrl+T, Ctrl+F, Ctrl+R -->
+            <div class="lyrics-textarea-wrapper flex-grow">
+                <textarea
+                    #lyricsEditor
+                    class="lyrics-editor-textarea"
+                    [(ngModel)]="editingLyricsText"
+                    (keydown)="onLyricsEditorKeyDown($event)"
+                    placeholder="{{ 'Language_Add_Lyrics' | translate }}"
+                    spellcheck="false"
+                ></textarea>
+            </div>
+        </div>
+
         <!-- Contenedor de Letras con scroll continuo estilo WPF (todas las líneas visibles, centradas y con resaltado) -->
-        <div class="lyrics-container" #lyricsScrollContainer>
+        <div *ngIf="!isEditingLyrics" class="lyrics-container" #lyricsScrollContainer>
             <div *ngIf="isBusy" class="lyrics-spinner">
                 <mat-spinner [diameter]="30"></mat-spinner>
             </div>

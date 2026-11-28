@@ -460,5 +460,10 @@
     "Language_By_Reverse_Date_Created": "Por fecha de creación desc",
     "Language_By_Date_Modified": "Por fecha de modificación",
     "Language_By_Reverse_Date_Modified": "Por fecha de modificación desc",
-    "Language_By_Rating": "Por calificación"
+    "Language_By_Rating": "Por calificación",
+    "Language_Play_Song_And_Insert_Timestamp": "Reproducir la canción y pulsar Ctrl+T para insertar una marca de tiempo al comienzo de la línea actual, presiona Ctrl + F para saltar al tiempo que marca la linea actual, presiona Ctrl + R para restar 500ms al tiempo de la line actual.",
+    "Language_Save_In_Audio_File": "Guardar en archivo de audio",
+    "Language_Cancel_Edit": "Cancelar edición",
+    "Language_Add_Lyrics": "Añadir letras",
+    "Language_Edit": "Editar"
 }

@@ -44,6 +44,20 @@
                 color: inherit;
             }
 
+            .lyrics-edit-btn {
+                font-size: 18px;
+                cursor: pointer;
+                opacity: 0.8;
+                padding: 2px 4px;
+                border-radius: 4px;
+                transition: opacity 0.2s ease, transform 0.1s ease;
+
+                &:hover {
+                    opacity: 1;
+                    transform: scale(1.1);
+                }
+            }
+
             &.music-color-hi-res {
                 color: #DAA520 !important;
                 .badge-icon,
@@ -267,6 +281,87 @@
             .lyrics-title,
             .lyrics-artist {
                 color: #e2e2e2 !important;
+            }
+        }
+    }
+
+    .lyrics-editor-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+
+        .lyrics-edit-info {
+            background: rgba(255, 255, 255, 0.07);
+            border-left: 3px solid var(--brush-music-primary-text, #DAA520);
+            border-radius: 3px;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #ccc;
+            flex-shrink: 0;
+
+            i {
+                font-size: 14px;
+                vertical-align: middle;
+            }
+        }
+
+        .lyrics-edit-actions {
+            flex-shrink: 0;
+
+            .lyrics-action-btn {
+                font-size: 12px;
+                padding: 4px 12px;
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+                border: 1px solid transparent;
+                border-radius: 3px;
+                transition: background-color 0.2s ease;
+
+                &.btn-primary {
+                    background-color: var(--brush-accent, #0078d7);
+                    color: #fff;
+
+                    &:hover {
+                        filter: brightness(1.15);
+                    }
+                }
+
+                &.btn-secondary {
+                    background-color: rgba(255, 255, 255, 0.12);
+                    color: #e0e0e0;
+
+                    &:hover {
+                        background-color: rgba(255, 255, 255, 0.2);
+                    }
+                }
+            }
+        }
+
+        .lyrics-textarea-wrapper {
+            flex-grow: 1;
+            display: flex;
+            min-height: 0;
+
+            .lyrics-editor-textarea {
+                width: 100%;
+                height: 100%;
+                resize: none;
+                background: rgba(0, 0, 0, 0.35);
+                color: #f0f0f0;
+                font-family: Consolas, 'Courier New', monospace;
+                font-size: 14px;
+                line-height: 1.5;
+                padding: 8px 10px;
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 4px;
+                outline: none;
+                box-sizing: border-box;
+
+                &:focus {
+                    border-color: var(--brush-accent, #0078d7);
+                }
             }
         }
     }

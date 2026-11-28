@@ -15,6 +15,9 @@ import { PlaybackProgress } from '../../../../services/playback/playback-progres
 import { LrcLyricsGetter } from '../../../../services/lyrics/lrc-lyrics-getter';
 
 import { AppearanceServiceBase } from '../../../../services/appearance/appearance.service.base';
+import { FileMetadataFactoryBase } from '../../../../common/metadata/file-metadata.factory.base';
+import { IndexingService } from '../../../../services/indexing/indexing.service';
+import { IFileMetadata } from '../../../../common/metadata/i-file-metadata';
 
 export interface LyricLineItem {
     text: string;
@@ -59,6 +62,13 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
     @ViewChild('lyricsScrollContainer')
     public lyricsScrollContainer: ElementRef<HTMLDivElement> | undefined;
 
+    @ViewChild('lyricsEditor')
+    public lyricsEditor: ElementRef<HTMLTextAreaElement> | undefined;
+
+    public isEditingLyrics: boolean = false;
+    public editingLyricsText: string = '';
+    public isSavingLyrics: boolean = false;
+
     public constructor(
         public settings: SettingsBase,
         public playbackService: PlaybackService,
@@ -66,6 +76,8 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
         private lyricsService: LyricsServiceBase,
         private lrcLyricsGetter: LrcLyricsGetter,
         private appearanceService: AppearanceServiceBase,
+        private fileMetadataFactory: FileMetadataFactoryBase,
+        private indexingService: IndexingService,
     ) {}
 
     public get hasLyrics(): boolean {
@@ -471,6 +483,234 @@ export class CollectionNowPlayingPanelComponent implements OnInit, OnDestroy {
     public async onLyricLineClick(line: LyricLineItem): Promise<void> {
         if (line && line.timestamp >= 0) {
             await this.playbackService.jumpToSecondAsync(line.timestamp / 1000);
+        }
+    }
+
+    public startEditingLyrics(): void {
+        this.isEditingLyrics = true;
+        let text = this._lyrics?.plainText || '';
+
+        // Si el texto actual no contiene las líneas iniciales de metadatos [00:00.000], agregarlas al inicio
+        const artist = this.track?.artists || '';
+        const title = this.track?.title || '';
+        const headerLines = `[00:00.000]Artist: ${artist}\n[00:00.000]Title: ${title}\n\n`;
+
+        if (!text.toLowerCase().includes('[00:00.000]artist:') && !text.toLowerCase().includes('[00:00.000]title:')) {
+            text = headerLines + text;
+        }
+
+        this.editingLyricsText = text;
+        setTimeout(() => {
+            if (this.lyricsEditor && this.lyricsEditor.nativeElement) {
+                this.lyricsEditor.nativeElement.focus();
+            }
+        }, 50);
+    }
+
+    public cancelEditingLyrics(): void {
+        this.isEditingLyrics = false;
+        this.editingLyricsText = '';
+    }
+
+    public async saveLyricsToAudioFileAsync(): Promise<void> {
+        if (!this.track || !this.track.path) {
+            return;
+        }
+
+        this.isSavingLyrics = true;
+        try {
+            const fileMetadata: IFileMetadata = await this.fileMetadataFactory.createAsync(this.track.path);
+            fileMetadata.lyrics = this.editingLyricsText;
+            fileMetadata.save();
+
+            // Actualizar la base de datos y la interfaz mediante indexingService
+            await this.indexingService.indexAfterTagChangeAsync([fileMetadata]);
+
+            // Cargar y mostrar de inmediato las nuevas letras guardadas
+            this.isEditingLyrics = false;
+            this.previousTrackPath = '';
+            await this.loadLyricsAsync(this.track);
+        } catch (error) {
+            console.error('Error saving lyrics into audio file:', error);
+        } finally {
+            this.isSavingLyrics = false;
+        }
+    }
+
+    public onLyricsEditorKeyDown(event: KeyboardEvent): void {
+        if (!event.ctrlKey) {
+            return;
+        }
+
+        const key = event.key ? event.key.toLowerCase() : '';
+        if (key === 't') {
+            event.preventDefault();
+            this.addTimeStampToSelectedLyricsLine();
+        } else if (key === 'f') {
+            event.preventDefault();
+            this.jumpToCurrentLine();
+        } else if (key === 'r') {
+            event.preventDefault();
+            this.reduceTimeStampToSelectedLyricsLine();
+        }
+    }
+
+    private formatTimestamp(totalMilliseconds: number): string {
+        const msClamped = Math.max(0, Math.floor(totalMilliseconds));
+        const totalSeconds = Math.floor(msClamped / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const millis = msClamped % 1000;
+        const mm = minutes.toString().padStart(2, '0');
+        const ss = seconds.toString().padStart(2, '0');
+        const mmm = millis.toString().padStart(3, '0');
+        return `[${mm}:${ss}.${mmm}]`;
+    }
+
+    /**
+     * Implementación exacta de AddTimeStampToSelectedLyricsLine de Dopamine C# (WPF):
+     * Inserta o actualiza la marca de tiempo al inicio de la línea actual y pasa el cursor a la siguiente línea.
+     */
+    private addTimeStampToSelectedLyricsLine(): void {
+        if (!this.lyricsEditor || !this.lyricsEditor.nativeElement) {
+            return;
+        }
+
+        const textarea = this.lyricsEditor.nativeElement;
+        const text = textarea.value;
+        const caretIndex = textarea.selectionStart;
+
+        // Determinar inicio y fin de la línea actual
+        const lineStart = text.lastIndexOf('\n', caretIndex - 1) + 1;
+        let lineEnd = text.indexOf('\n', caretIndex);
+        if (lineEnd === -1) {
+            lineEnd = text.length;
+        }
+
+        const line = text.substring(lineStart, lineEnd);
+        const currentMs = this.playbackService.getCurrentProgress().progressSeconds * 1000;
+        const timeStamp = this.formatTimestamp(currentMs);
+
+        // Extraer el texto de la línea descartando cualquier timestamp previo si ya existía
+        let content = line;
+        if (line.trim().startsWith('[')) {
+            const closingBracketIdx = line.indexOf(']');
+            if (closingBracketIdx !== -1) {
+                content = line.substring(closingBracketIdx + 1);
+            }
+        }
+
+        // Quitar espacios en blanco al principio y hacer mayúscula la primera letra
+        const trimmedContent = content.trimStart();
+        let formattedContent = trimmedContent;
+        if (formattedContent.length > 0) {
+            formattedContent = formattedContent.charAt(0).toUpperCase() + formattedContent.slice(1);
+        }
+
+        const newLine = timeStamp + formattedContent;
+
+        // Actualizar texto
+        const newText = text.substring(0, lineStart) + newLine + text.substring(lineEnd);
+        this.editingLyricsText = newText;
+        textarea.value = newText;
+
+        // Posicionar cursor al inicio de la siguiente línea (como en C# WPF)
+        const nextLinePos = lineStart + newLine.length + 1;
+        const newCaret = Math.min(newText.length, nextLinePos);
+        textarea.setSelectionRange(newCaret, newCaret);
+    }
+
+    /**
+     * Implementación exacta de JumpToCurrentLine de Dopamine C# (WPF):
+     * Salta la reproducción al timestamp de la línea actual del cursor.
+     */
+    private jumpToCurrentLine(): void {
+        if (!this.lyricsEditor || !this.lyricsEditor.nativeElement) {
+            return;
+        }
+
+        const textarea = this.lyricsEditor.nativeElement;
+        const text = textarea.value;
+        const caretIndex = textarea.selectionStart;
+
+        const lineStart = text.lastIndexOf('\n', caretIndex - 1) + 1;
+        let lineEnd = text.indexOf('\n', caretIndex);
+        if (lineEnd === -1) {
+            lineEnd = text.length;
+        }
+
+        const line = text.substring(lineStart, lineEnd).trim();
+        if (!line.startsWith('[')) {
+            return;
+        }
+
+        const closingBracketIdx = line.indexOf(']');
+        if (closingBracketIdx === -1) {
+            return;
+        }
+
+        const rawStamp = line.substring(1, closingBracketIdx);
+        const parts = rawStamp.split(':');
+        if (parts.length === 2) {
+            const minutes = parseInt(parts[0], 10);
+            const seconds = parseFloat(parts[1]);
+            if (!isNaN(minutes) && !isNaN(seconds)) {
+                const totalSeconds = minutes * 60 + seconds;
+                this.playbackService.jumpToSecondAsync(totalSeconds);
+            }
+        }
+    }
+
+    /**
+     * Implementación exacta de ReduceTimeStampToSelectedLyricsLine de Dopamine C# (WPF):
+     * Resta 500 ms al timestamp de la línea actual.
+     */
+    private reduceTimeStampToSelectedLyricsLine(): void {
+        if (!this.lyricsEditor || !this.lyricsEditor.nativeElement) {
+            return;
+        }
+
+        const textarea = this.lyricsEditor.nativeElement;
+        const text = textarea.value;
+        const caretIndex = textarea.selectionStart;
+
+        const lineStart = text.lastIndexOf('\n', caretIndex - 1) + 1;
+        let lineEnd = text.indexOf('\n', caretIndex);
+        if (lineEnd === -1) {
+            lineEnd = text.length;
+        }
+
+        const line = text.substring(lineStart, lineEnd);
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('[')) {
+            return;
+        }
+
+        const closingBracketIdx = line.indexOf(']');
+        if (closingBracketIdx === -1) {
+            return;
+        }
+
+        const rawStamp = line.substring(line.indexOf('[') + 1, closingBracketIdx);
+        const parts = rawStamp.split(':');
+        if (parts.length === 2) {
+            const minutes = parseInt(parts[0], 10);
+            const seconds = parseFloat(parts[1]);
+            if (!isNaN(minutes) && !isNaN(seconds)) {
+                let totalMs = (minutes * 60 + seconds) * 1000;
+                totalMs = Math.max(0, totalMs - 500);
+
+                const newTimeStamp = this.formatTimestamp(totalMs);
+                const restOfLine = line.substring(closingBracketIdx + 1);
+                const newLine = line.substring(0, line.indexOf('[')) + newTimeStamp + restOfLine;
+
+                const newText = text.substring(0, lineStart) + newLine + text.substring(lineEnd);
+                this.editingLyricsText = newText;
+                textarea.value = newText;
+
+                // Mantener el cursor dentro de la línea
+                textarea.setSelectionRange(caretIndex, caretIndex);
+            }
         }
     }
 }
