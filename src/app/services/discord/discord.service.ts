@@ -26,22 +26,17 @@ export class DiscordService {
     ) {}
 
     public get enableDiscordRichPresence(): boolean {
-        return this.settings.enableDiscordRichPresence;
+        return false;
     }
 
-    public set enableDiscordRichPresence(v: boolean) {
-        this.settings.enableDiscordRichPresence = v;
-        this.initialize();
+    public set enableDiscordRichPresence(_v: boolean) {
+        this.settings.enableDiscordRichPresence = false;
+        this.clearPresence();
     }
 
     public initialize(): void {
-        if (this.settings.enableDiscordRichPresence) {
-            this.addSubscriptions();
-            this.updatePresence();
-        } else {
-            this.removeSubscriptions();
-            this.clearPresence();
-        }
+        this.removeSubscriptions();
+        this.clearPresence();
     }
 
     private addSubscriptions(): void {

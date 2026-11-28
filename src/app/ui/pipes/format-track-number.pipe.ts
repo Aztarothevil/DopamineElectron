@@ -4,15 +4,15 @@ import { Pipe, PipeTransform } from '@angular/core';
 export class FormatTrackNumberPipe implements PipeTransform {
     public transform(trackNumber: number | undefined): string {
         if (trackNumber == undefined) {
-            return '-';
+            return '--';
         }
 
         if (trackNumber <= 0) {
-            return '-';
+            return '--';
         }
 
         if (trackNumber >= 1 && trackNumber <= 9) {
-            return trackNumber.toString();
+            return trackNumber.toString().padStart(2, '0');
         }
 
         return trackNumber.toString();

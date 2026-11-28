@@ -56,6 +56,10 @@ export class PlaybackQueueComponent implements OnInit, OnDestroy {
     public get filteredTracks(): TrackModel[] {
         const queueTracks: TrackModel[] = this.playbackService.playbackQueue.tracks;
 
+        for (let i = 0; i < queueTracks.length; i++) {
+            queueTracks[i].sortTrackNumber = i + 1;
+        }
+
         if (StringUtils.isNullOrWhiteSpace(this.searchText)) {
             return queueTracks;
         }

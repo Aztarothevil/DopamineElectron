@@ -7,8 +7,7 @@
                 <div *ngIf="this.displayedCount !== 1">{{ 'albums' | translate }}</div>
             </ng-container>
             <ng-container *ngIf="this.songsQueueMode">
-                <div *ngIf="this.displayedCount === 1">{{ 'track' | translate }}</div>
-                <div *ngIf="this.displayedCount !== 1">{{ 'tracks' | translate }}</div>
+                <div class="secondary-text">{{ currentMusicOrderText }}</div>
             </ng-container>
             <i
                 class="las la-random secondary-text font-16px pointer ml-2"
@@ -74,7 +73,6 @@
                 [matTooltip]="'Language_Toggle_Track_Order' | translate"
                 (click)="onToggleMusicOrder()"
             >
-                <span class="accent-color mr-1">{{ currentMusicOrderText }}</span>
                 <span class="secondary-text">{{ musicOrderText }}</span>
             </div>
         </div>
@@ -123,9 +121,6 @@
             <span>{{ 'shuffle' | translate }}</span>
         </button>
         <mat-divider></mat-divider>
-        <button mat-menu-item (click)="onEditAsync(album)">
-            <span>{{ 'edit' | translate }}</span>
-        </button>
         <button mat-menu-item (click)="onDeleteAlbumAsync(album)">
             <span>{{ 'delete' | translate }}</span>
         </button>

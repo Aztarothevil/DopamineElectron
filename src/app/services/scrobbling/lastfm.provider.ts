@@ -32,31 +32,15 @@ export class LastfmProvider implements ScrobbleProvider {
     }
 
     public get isProviderEnabled(): boolean {
-        return this.settings.enableLastFmScrobbling;
+        return false;
     }
 
     public initialize(): void {
-        this.initializeSessionFromSettings();
+        this._signInState = SignInState.SignedOut;
     }
 
     private initializeSessionFromSettings(): void {
-        if (!this.settings.enableLastFmScrobbling) {
-            return;
-        }
-
-        this.username = this.settings.lastFmUsername;
-        this.password = this.settings.lastFmPassword;
-        this.sessionKey = this.settings.lastFmSessionKey;
-
-        if (
-            !StringUtils.isNullOrWhiteSpace(this.username) &&
-            !StringUtils.isNullOrWhiteSpace(this.password) &&
-            !StringUtils.isNullOrWhiteSpace(this.sessionKey)
-        ) {
-            this._signInState = SignInState.SignedIn;
-        } else {
-            this._signInState = SignInState.SignedOut;
-        }
+        this._signInState = SignInState.SignedOut;
     }
 
     public async signInAsync(): Promise<void> {
@@ -117,50 +101,11 @@ export class LastfmProvider implements ScrobbleProvider {
         }
     }
 
-    public async updateNowPlayingAsync(track: TrackModel): Promise<boolean> {
-        if (this.signInState !== SignInState.SignedIn) {
-            return Promise.resolve(false);
-        }
-        const artist: string = track.rawFirstArtist;
-        const trackTitle: string = track.rawTitle;
-        const albumTitle: string = track.rawAlbumTitle;
-        const durationInSeconds: number = Math.round(track.durationInMilliseconds / 1000);
-
-        try {
-            const isSuccess: boolean = await this.lastfmApi.updateTrackNowPlayingAsync(
-                this.sessionKey,
-                artist,
-                trackTitle,
-                albumTitle,
-                durationInSeconds,
-            );
-            return Promise.resolve(isSuccess);
-        } catch (e: unknown) {
-            this.logger.error(
-                e,
-                `Could not update Now Playing for track '${artist} - ${trackTitle}' on Last.fm`,
-                'LastfmProvider',
-                'updateNowPlayingAsync',
-            );
-            return Promise.resolve(false);
-        }
+    public async updateNowPlayingAsync(_track: TrackModel): Promise<boolean> {
+        return Promise.resolve(false);
     }
 
-    public async scrobbleAsync(track: TrackModel, startTime: Date): Promise<boolean> {
-        if (this.signInState !== SignInState.SignedIn) {
-            return Promise.resolve(false);
-        }
-
-        const artist: string = track.rawFirstArtist;
-        const trackTitle: string = track.rawTitle;
-        const albumTitle: string = track.rawAlbumTitle;
-
-        try {
-            const isSuccess: boolean = await this.lastfmApi.scrobbleTrackAsync(this.sessionKey, artist, trackTitle, albumTitle, startTime);
-            return Promise.resolve(isSuccess);
-        } catch (e: unknown) {
-            this.logger.error(e, `Could not Scrobble track '${artist} - ${trackTitle}' to Last.fm`, 'LastfmProvider', 'scrobbleAsync');
-            return Promise.resolve(false);
-        }
+    public async scrobbleAsync(_track: TrackModel, _startTime: Date): Promise<boolean> {
+        return Promise.resolve(false);
     }
 }

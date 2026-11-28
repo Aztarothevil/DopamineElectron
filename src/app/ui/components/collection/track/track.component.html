@@ -23,7 +23,7 @@
         #trigger
     >
         <div class="app-track__left secondary-text" [ngClass]="{ compact: this.settings.useCompactTrackListView }">
-            {{ track.number | formatTrackNumber }}
+            {{ track.formattedTrackNumber }}
         </div>
         <div class="app-track__right" [ngClass]="{ compact: this.settings.useCompactTrackListView }">
             <div class="app-track__top" [ngClass]="{ compact: this.settings.useCompactTrackListView }">

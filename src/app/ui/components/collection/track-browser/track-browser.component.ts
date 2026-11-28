@@ -280,6 +280,11 @@ export class TrackBrowserComponent extends TrackBrowserBase implements OnInit, A
         }
 
         this.orderedTracks = [...orderedTracks];
+
+        for (let i = 0; i < this.orderedTracks.length; i++) {
+            this.orderedTracks[i].sortTrackNumber = i + 1;
+        }
+
         this.selectionWatcher.setDisplayedItems(this.orderedTracks);
 
         timer.stop();

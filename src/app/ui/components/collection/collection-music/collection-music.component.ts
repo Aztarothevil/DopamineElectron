@@ -59,7 +59,7 @@ export class CollectionMusicComponent implements OnInit, OnDestroy {
     public tracks: TrackModels = new TrackModels();
     public centerTracks: TrackModels = new TrackModels();
 
-    public musicOrder: MusicOrder = MusicOrder.Alphabetical;
+    public musicOrder: MusicOrder = MusicOrder.ReverseByDateModified;
     public musicOrderText: string = '';
     public currentMusicOrderText: string = '';
 
@@ -185,27 +185,27 @@ export class CollectionMusicComponent implements OnInit, OnDestroy {
         const oderText = this.translatorService.get('Language_Ordered_By');
         switch (musicOrder) {
             case MusicOrder.Alphabetical:
-                this.musicOrderText = clickText + this.translatorService.get('Language_Toggle_Track_Order_ByDate').toLowerCase();
-                this.currentMusicOrderText = oderText + this.translatorService.get('Language_Toggle_Track_Order_ByDate').toLowerCase();
+                this.musicOrderText = clickText + this.translatorService.get('Language_By_Date_Created').toLowerCase();
+                this.currentMusicOrderText = oderText + this.translatorService.get('Language_By_Date_Modified').toLowerCase();
                 break;
             case MusicOrder.ByDateCreated:
-                this.musicOrderText = clickText + this.translatorService.get('Language_By_Reverse_Date_Modified').toLowerCase();
+                this.musicOrderText = clickText + this.translatorService.get('Language_By_Reverse_Date_Created').toLowerCase();
                 this.currentMusicOrderText = oderText + this.translatorService.get('Language_By_Date_Created').toLowerCase();
                 break;
             case MusicOrder.ReverseByDateCreated:
-                this.musicOrderText = clickText + this.translatorService.get('Language_By_Reverse_Date_Modified').toLowerCase();
+                this.musicOrderText = clickText + this.translatorService.get('Language_By_Date_Modified').toLowerCase();
                 this.currentMusicOrderText = oderText + this.translatorService.get('Language_By_Reverse_Date_Created').toLowerCase();
                 break;
             case MusicOrder.ByDateModified:
-                this.musicOrderText = clickText + this.translatorService.get('Language_By_Rating').toLowerCase();
+                this.musicOrderText = clickText + this.translatorService.get('Language_By_Reverse_Date_Modified').toLowerCase();
                 this.currentMusicOrderText = oderText + this.translatorService.get('Language_By_Date_Modified').toLowerCase();
                 break;
             case MusicOrder.ReverseByDateModified:
-                this.musicOrderText = clickText + this.translatorService.get('Language_By_Date_Modified').toLowerCase();
+                this.musicOrderText = clickText + this.translatorService.get('Language_By_Rating').toLowerCase();
                 this.currentMusicOrderText = oderText + this.translatorService.get('Language_By_Reverse_Date_Modified').toLowerCase();
                 break;
             case MusicOrder.ByRating:
-                this.musicOrderText = clickText + this.translatorService.get('Language_By_Date_Created').toLowerCase();
+                this.musicOrderText = clickText + this.translatorService.get('Language_By_Date_Modified').toLowerCase();
                 this.currentMusicOrderText = oderText + this.translatorService.get('Language_By_Rating').toLowerCase();
                 break;
             default:

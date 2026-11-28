@@ -14,11 +14,15 @@ export class MusicTracksPersister extends BaseTracksPersister {
         this.defaultTrackOrder = TrackOrder.none;
     }
 
+    public override getSelectedTrackOrder(): TrackOrder {
+        return TrackOrder.none;
+    }
+
     public getSelectedTrackOrderFromSettings(): string {
-        return this.settings.foldersTabSelectedTrackOrder;
+        return 'none';
     }
 
     public saveSelectedTrackOrderToSettings(selectedTrackOrderName: string): void {
-        this.settings.foldersTabSelectedTrackOrder = selectedTrackOrderName;
+        // No-op: el panel de música conserva el orden suministrado
     }
 }

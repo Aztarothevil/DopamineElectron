@@ -8,6 +8,7 @@ import {
     MpegAudioFileSettings,
     PictureType,
     TagTypes,
+    XiphComment,
 } from '@digimezzo/node-taglib-sharp';
 import { IFileMetadata } from './i-file-metadata';
 import { RatingConverter } from './rating-converter';
@@ -247,6 +248,36 @@ export class TagLibFileMetadata implements IFileMetadata {
     }
 
     private readRatingFromFile(tagLibFile: File): number {
+        // Primero intentar leer de etiquetas Xiph / FLAC (ej: Vorbis Comment "RATING WMP", "RATING", etc.)
+        try {
+            const xiphTag = tagLibFile.getTag(TagTypes.Xiph, false) as XiphComment | undefined;
+            if (xiphTag && xiphTag.fieldNames) {
+                const ratingFields = ['RATING WMP', 'RATING', 'STAR RATING'];
+                for (const field of ratingFields) {
+                    const values = xiphTag.getField(field);
+                    if (values && values.length > 0) {
+                        const rawVal = parseFloat(values[0]);
+                        if (!isNaN(rawVal) && rawVal > 0) {
+                            if (rawVal <= 5) {
+                                // Escala de 1 a 5 estrellas -> convertir a escala Dopamine de 1 a 10 (2 puntos por estrella)
+                                return Math.round(rawVal * 2);
+                            } else if (rawVal <= 10) {
+                                return Math.round(rawVal);
+                            } else if (rawVal <= 100) {
+                                // Escala porcentual (ej: MediaMonkey 20, 40, 60, 80, 100)
+                                return Math.round((rawVal / 100) * 10);
+                            } else if (rawVal <= 255) {
+                                // Escala POPM en Vorbis comment
+                                return RatingConverter.popMToStarRating(Math.round(rawVal));
+                            }
+                        }
+                    }
+                }
+            }
+        } catch {
+            // Continuar con ID3v2 si falla Xiph
+        }
+
         const id3v2Tag: Id3v2Tag = <Id3v2Tag>tagLibFile.getTag(TagTypes.Id3v2, true);
         const allPopularimeterFrames: Id3v2PopularimeterFrame[] = id3v2Tag.getFramesByClassType<Id3v2PopularimeterFrame>(
             Id3v2FrameClassType.PopularimeterFrame,
@@ -263,6 +294,16 @@ export class TagLibFileMetadata implements IFileMetadata {
     }
 
     private writeRatingToFile(tagLibFile: File, rating: number): void {
+        try {
+            const xiphTag = tagLibFile.getTag(TagTypes.Xiph, false) as XiphComment | undefined;
+            if (xiphTag) {
+                const starVal = rating > 0 ? (rating / 2).toString() : '0';
+                xiphTag.setFieldAsStrings('RATING WMP', starVal);
+            }
+        } catch {
+            // Ignorar si el archivo no soporta comentarios Xiph
+        }
+
         const id3v2Tag: Id3v2Tag = <Id3v2Tag>tagLibFile.getTag(TagTypes.Id3v2, true);
         let allPopularimeterFrames: Id3v2PopularimeterFrame[] = id3v2Tag.getFramesByClassType<Id3v2PopularimeterFrame>(
             Id3v2FrameClassType.PopularimeterFrame,

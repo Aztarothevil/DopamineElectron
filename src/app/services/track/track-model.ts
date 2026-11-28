@@ -37,6 +37,26 @@ export class TrackModel implements ISelectable {
         return this.track.trackNumber ?? 0;
     }
 
+    public get sortTrackNumber(): number | undefined {
+        return this.track.sortTrackNumber;
+    }
+
+    public set sortTrackNumber(v: number | undefined) {
+        this.track.sortTrackNumber = v;
+    }
+
+    public get formattedTrackNumber(): string {
+        if (this.sortTrackNumber != undefined && this.sortTrackNumber > 0) {
+            return this.sortTrackNumber.toString().padStart(2, '0');
+        }
+
+        if (this.number > 0) {
+            return this.number.toString().padStart(2, '0');
+        }
+
+        return '--';
+    }
+
     public get discNumber(): number {
         return this.track.discNumber ?? 0;
     }

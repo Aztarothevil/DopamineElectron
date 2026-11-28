@@ -191,6 +191,10 @@ export class PlaylistTrackBrowserComponent extends BaseVirtualScrollBrowser impl
 
         this.orderedTracks = [...orderedTracks];
 
+        for (let i = 0; i < this.orderedTracks.length; i++) {
+            this.orderedTracks[i].sortTrackNumber = i + 1;
+        }
+
         this.playbackIndicationService.setPlayingTrack(this.orderedTracks, this.playbackService.currentTrack);
     }
 
