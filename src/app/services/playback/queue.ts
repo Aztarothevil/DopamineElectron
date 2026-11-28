@@ -40,6 +40,8 @@ export class Queue {
             this.unShuffle();
         }
 
+        this.updateSortTrackNumbers();
+
         this.logger.info(`Set '${tracksToSet?.length}' tracks. Shuffle=${shuffle}`, 'Queue', 'setTracks');
 
         return this._tracks;
@@ -51,12 +53,16 @@ export class Queue {
             this.playbackOrder.push(this._tracks.length - 1);
         }
 
+        this.updateSortTrackNumbers();
+
         this.logger.info(`Added '${tracksToAdd?.length}' tracks`, 'Queue', 'addTracks');
     }
 
     public restoreTracks(tracks: TrackModel[], playbackOrder: number[]): void {
         this._tracks = tracks;
         this.playbackOrder = playbackOrder;
+
+        this.updateSortTrackNumbers();
 
         this.logger.info(`Restored '${tracks?.length}' tracks`, 'Queue', 'restoreTracks');
     }
@@ -78,6 +84,8 @@ export class Queue {
                 this.removeFromPlaybackOrder(trackIndex);
             }
         }
+
+        this.updateSortTrackNumbers();
     }
 
     public moveTrackInPlaybackOrder(fromPlaybackOrderIndex: number, toPlaybackOrderIndex: number): void {
@@ -209,6 +217,12 @@ export class Queue {
                     this.playbackOrder[index] -= 1;
                 }
             }
+        }
+    }
+
+    private updateSortTrackNumbers(): void {
+        for (let i = 0; i < this._tracks.length; i++) {
+            this._tracks[i].sortTrackNumber = i + 1;
         }
     }
 }

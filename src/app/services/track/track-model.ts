@@ -20,6 +20,7 @@ export class TrackModel implements ISelectable {
     public showHeader: boolean = false;
 
     public playlistPath: string = '';
+    public sortTrackNumber: number | undefined = undefined;
 
     public get id(): number {
         return this.track.trackId;
@@ -35,14 +36,6 @@ export class TrackModel implements ISelectable {
 
     public get number(): number {
         return this.track.trackNumber ?? 0;
-    }
-
-    public get sortTrackNumber(): number | undefined {
-        return this.track.sortTrackNumber;
-    }
-
-    public set sortTrackNumber(v: number | undefined) {
-        this.track.sortTrackNumber = v;
     }
 
     public get formattedTrackNumber(): string {

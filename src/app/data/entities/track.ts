@@ -59,7 +59,6 @@ export class Track {
     public sampleRate: number | undefined;
     public trackTitle: string | undefined;
     public trackNumber: number | undefined;
-    public sortTrackNumber: number | undefined;
     public trackCount: number | undefined;
     public discNumber: number | undefined;
     public discCount: number | undefined;

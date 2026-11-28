@@ -1,7 +1,7 @@
 <div class="collection-viewport collection-music-viewport">
     <as-split gutterSize="4" unit="percent" direction="horizontal" (dragEnd)="splitDragEnd($event)">
         <!-- Columna 1 (Extrema Izquierda): Selector de Carpetas/Índice -->
-        <as-split-area [size]="folderPaneSize" minSize="8" maxSize="20">
+        <as-split-area [size]="folderPaneSize" minSize="4" maxSize="20">
             <div class="folder-pane fill">
                 <div class="folder-pane-header d-flex flex-row align-items-center justify-content-between p-2 pointer"
                      (click)="selectAllFolders()"
@@ -38,7 +38,7 @@
         </as-split-area>
 
         <!-- Columna 2: Portada + Track Info + Letras Sincronizadas -->
-        <as-split-area [size]="nowPlayingPaneSize" minSize="18" maxSize="35">
+        <as-split-area [size]="nowPlayingPaneSize" minSize="9" maxSize="35">
             <app-collection-now-playing-panel class="fill"></app-collection-now-playing-panel>
         </as-split-area>
 
@@ -59,7 +59,7 @@
         </as-split-area>
 
         <!-- Columna 4 (Derecha): Lista de canciones con estrellas y duración -->
-        <as-split-area [size]="tracksPaneSize" minSize="15" maxSize="50">
+        <as-split-area [size]="tracksPaneSize" minSize="7" maxSize="50">
             <div class="right-side-pane fill">
                 <app-track-browser
                     class="p-2 fill"
